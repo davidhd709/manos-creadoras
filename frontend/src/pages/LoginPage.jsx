@@ -1,0 +1,161 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../state/AuthContext';
+import { useToast } from '../ui/Toast';
+
+const LockIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+const UserPlusIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" />
+  </svg>
+);
+
+export default function LoginPage() {
+  const [form, setForm] = useState({ email: '', password: '', role: 'buyer', name: '' });
+  const [mode, setMode] = useState('login');
+  const [submitting, setSubmitting] = useState(false);
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+  const toast = useToast();
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (mode === 'login') await login(form.email, form.password);
+      else await register(form);
+      toast.success(mode === 'login' ? 'Bienvenido de vuelta' : 'Cuenta creada exitosamente');
+      navigate('/');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error de autenticacion';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <main className="auth-page" role="main">
+      {/* ── Left: Image panel ── */}
+      <div className="auth-visual">
+        <div className="auth-visual-img" aria-hidden="true" />
+        <div className="auth-visual-overlay" aria-hidden="true" />
+
+        <div className="auth-visual-content">
+          <h2 className="auth-headline">
+            Donde cada pieza<br />tiene <em>historia</em>
+          </h2>
+          <p className="auth-subtext">
+            Miles de artesanos latinoamericanos comparten su arte contigo. Cada compra transforma una vida.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Right: Form ── */}
+      <div className="auth-form-wrap">
+        <div className="auth-form-inner">
+          <div className="auth-mode-indicator">
+            {mode === 'login' ? <LockIcon /> : <UserPlusIcon />}
+          </div>
+
+          <h1>{mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}</h1>
+          <p className="subtitle">
+            {mode === 'login'
+              ? 'Ingresa tus credenciales para continuar'
+              : 'Completa tus datos para unirte'
+            }
+          </p>
+
+          <form className="auth-form" onSubmit={submit}>
+            {mode === 'register' && (
+              <>
+                <label htmlFor="name">
+                  Nombre completo
+                  <input
+                    id="name"
+                    placeholder="Ej: Maria Garcia"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                </label>
+                <label htmlFor="role">
+                  Tipo de cuenta
+                  <div className="auth-role-selector">
+                    <button
+                      type="button"
+                      className={`auth-role-btn ${form.role === 'buyer' ? 'active' : ''}`}
+                      onClick={() => setForm({ ...form, role: 'buyer' })}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" />
+                      </svg>
+                      Comprador
+                    </button>
+                    <button
+                      type="button"
+                      className={`auth-role-btn ${form.role === 'artisan' ? 'active' : ''}`}
+                      onClick={() => setForm({ ...form, role: 'artisan' })}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /><path d="M20 3v4" /><path d="M22 5h-4" />
+                      </svg>
+                      Artesano
+                    </button>
+                  </div>
+                </label>
+              </>
+            )}
+            <label htmlFor="email">
+              Correo electronico
+              <input
+                id="email"
+                placeholder="tu@email.com"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </label>
+            <label htmlFor="password">
+              Contrasena
+              <input
+                id="password"
+                placeholder="Minimo 6 caracteres"
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+                minLength={6}
+              />
+            </label>
+            <button className="btn accent" style={{ width: '100%', padding: '0.85rem', marginTop: '0.25rem' }} disabled={submitting}>
+              {submitting ? 'Procesando...' : mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
+            </button>
+          </form>
+
+          <div className="auth-divider">
+            <span>o</span>
+          </div>
+
+          <div className="auth-toggle">
+            {mode === 'login' ? (
+              <>No tienes cuenta? <button onClick={() => setMode('register')}>Crea una gratis</button></>
+            ) : (
+              <>Ya tienes cuenta? <button onClick={() => setMode('login')}>Inicia sesion</button></>
+            )}
+          </div>
+
+          <p className="auth-footer-text">
+            Al continuar, aceptas nuestros terminos de servicio y politica de privacidad.
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}
