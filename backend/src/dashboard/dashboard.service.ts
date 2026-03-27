@@ -65,37 +65,51 @@ export class DashboardService {
     const [
       products,
       totalProducts,
-      topProducts,
-      recentOrders,
+      artisanRevenue,
+      artisanOrders,
       lowStockProducts,
+      monthlySales,
+      revenueByProduct,
     ] = await Promise.all([
       this.productsRepository.findByArtisan(artisanId),
       this.productsRepository.countByArtisan(artisanId),
-      this.productsRepository.findTop(5),
-      this.ordersRepository.getRecentOrders(10),
+      this.ordersRepository.calculateRevenueByArtisan(artisanId),
+      this.ordersRepository.findByArtisan(artisanId),
       this.productsRepository.findLowStock(5),
+      this.ordersRepository.getMonthlySalesByArtisan(artisanId),
+      this.ordersRepository.getRevenueByProductForArtisan(artisanId),
     ]);
 
     const totalSold = products.reduce((sum, p) => sum + (p.soldCount || 0), 0);
-    const totalRevenue = products.reduce(
-      (sum, p) => sum + (p.soldCount || 0) * p.price,
-      0,
-    );
     const myLowStock = lowStockProducts.filter(
       (p) => p.artisan?.toString() === artisanId,
     );
+
+    // Inventario detallado por producto
+    const inventorySummary = products.map((p) => ({
+      _id: p._id,
+      title: p.title,
+      stock: p.stock,
+      soldCount: p.soldCount || 0,
+      price: p.price,
+      isPromotion: p.isPromotion,
+      promotionPrice: p.promotionPrice,
+      category: p.category,
+    }));
 
     return {
       stats: {
         totalProducts,
         totalSold,
-        totalRevenue,
+        totalRevenue: artisanRevenue,
         lowStockAlerts: myLowStock.length,
+        totalOrders: artisanOrders.length,
       },
       topProducts: products.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)).slice(0, 5),
-      recentOrders: recentOrders.filter((o) =>
-        o.items.some((i: any) => (i.product as any)?.artisan?.toString() === artisanId),
-      ),
+      recentOrders: artisanOrders.slice(0, 10),
+      monthlySales,
+      revenueByProduct,
+      inventorySummary,
       inventory: {
         lowStock: myLowStock,
       },

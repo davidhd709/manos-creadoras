@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import api from '../api';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../ui/Toast';
@@ -9,6 +10,7 @@ import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 
 const ROLE_TITLES = {
+  superadmin: 'Panel Super Administrador',
   admin: 'Panel de Administracion',
   artisan: 'Panel de Artesano',
   buyer: 'Mi Panel',
@@ -24,7 +26,7 @@ export default function Dashboard() {
     if (!user) return;
 
     const endpoint =
-      user.role === 'admin'
+      user.role === 'superadmin' || user.role === 'admin'
         ? '/dashboard/admin'
         : user.role === 'artisan'
           ? '/dashboard/artisan'
@@ -47,6 +49,8 @@ export default function Dashboard() {
     { key: 'items', label: 'Productos', render: (row) => row.items?.length || 0 },
   ];
 
+  const monthlySales = (data.monthlySales || []).slice().reverse();
+
   return (
     <main className="page" role="main">
       <div className="section-header" style={{ marginBottom: '2rem' }}>
@@ -58,7 +62,7 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-        {user.role === 'admin' && (
+        {(user.role === 'admin' || user.role === 'superadmin') && (
           <>
             <StatsCard title="Ingresos totales" value={`$${data.stats.totalRevenue?.toLocaleString()}`} subtitle="Total acumulado" />
             <StatsCard title="Pedidos" value={data.stats.totalOrders} subtitle={`${data.stats.pendingOrders} pendientes`} />
@@ -68,7 +72,7 @@ export default function Dashboard() {
         )}
         {user.role === 'artisan' && (
           <>
-            <StatsCard title="Ingresos estimados" value={`$${data.stats.totalRevenue?.toLocaleString()}`} subtitle="Total ventas" />
+            <StatsCard title="Ingresos" value={`$${data.stats.totalRevenue?.toLocaleString()}`} subtitle="Total ventas" />
             <StatsCard title="Productos" value={data.stats.totalProducts} subtitle="En tu vitrina" />
             <StatsCard title="Unidades vendidas" value={data.stats.totalSold} subtitle="Total historico" />
             <StatsCard title="Alertas inventario" value={data.stats.lowStockAlerts} subtitle="Productos bajo stock" />
@@ -83,41 +87,78 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      {(user.role === 'artisan' || user.role === 'admin') && (
+      {(user.role === 'superadmin' || user.role === 'admin') && (
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
           <Link to="/dashboard/productos" className="btn accent">Gestionar productos</Link>
           <Link to="/dashboard/pedidos" className="btn secondary">Ver pedidos</Link>
           <Link to="/dashboard/inventario" className="btn secondary">Inventario</Link>
+          <Link to="/dashboard/artesanos" className="btn secondary">Gestionar artesanos</Link>
+        </div>
+      )}
+      {user.role === 'artisan' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+          <Link to="/dashboard/productos" className="btn accent">Mis productos</Link>
+          <Link to="/dashboard/pedidos" className="btn secondary">Pedidos</Link>
+          <Link to="/dashboard/inventario" className="btn secondary">Inventario</Link>
+          <Link to="/dashboard/finanzas" className="btn secondary">Finanzas</Link>
+          <Link to="/dashboard/promociones" className="btn secondary">Promociones</Link>
+          <Link to="/dashboard/perfil-negocio" className="btn secondary">Mi negocio</Link>
         </div>
       )}
 
       {/* Monthly Sales Chart */}
-      {user.role === 'admin' && data.monthlySales?.length > 0 && (
+      {monthlySales.length > 0 && (
         <section className="section">
           <h2 className="section-title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Ventas mensuales</h2>
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: 200 }}>
-              {data.monthlySales.slice().reverse().map((m) => {
-                const maxTotal = Math.max(...data.monthlySales.map((s) => s.total));
-                const height = maxTotal > 0 ? (m.total / maxTotal) * 160 : 0;
-                return (
-                  <div key={m.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--text-secondary)' }}>${(m.total / 1000).toFixed(0)}k</span>
-                    <div
-                      style={{
-                        height,
-                        width: '100%',
-                        background: 'linear-gradient(180deg, var(--accent) 0%, var(--accent-dark) 100%)',
-                        borderRadius: '6px 6px 0 0',
-                        minHeight: 4,
-                        transition: 'height 0.5s ease',
-                      }}
-                    />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>{m.month.slice(5)}</span>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <ResponsiveContainer width="100%" height={280}>
+              {user.role === 'artisan' ? (
+                <LineChart data={monthlySales}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Ingresos']} />
+                  <Line type="monotone" dataKey="total" stroke="#e8833a" strokeWidth={2} dot={{ r: 4 }} />
+                </LineChart>
+              ) : (
+                <BarChart data={monthlySales}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Ingresos']} />
+                  <Bar dataKey="total" fill="#e8833a" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        </section>
+      )}
+
+      {/* Inventory Summary for Artisan */}
+      {user.role === 'artisan' && data.inventorySummary?.length > 0 && (
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title" style={{ fontSize: '1.25rem' }}>Resumen de inventario</h2>
+            <Link to="/dashboard/inventario" className="btn secondary" style={{ fontSize: '0.82rem', padding: '0.4rem 1rem' }}>Ver detalle</Link>
+          </div>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <Table
+              columns={[
+                { key: 'title', label: 'Producto', render: (r) => <span style={{ fontWeight: 500 }}>{r.title}</span> },
+                { key: 'stock', label: 'En stock', render: (r) => (
+                  <span style={{ fontWeight: 600, color: r.stock === 0 ? 'var(--error)' : r.stock <= 5 ? 'var(--warning)' : 'var(--success)' }}>
+                    {r.stock}
+                  </span>
+                )},
+                { key: 'soldCount', label: 'Vendidos', render: (r) => r.soldCount || 0 },
+                { key: 'promo', label: 'Promocion', render: (r) => r.isPromotion
+                  ? <span style={{ color: 'var(--error)', fontWeight: 600 }}>${r.promotionPrice}</span>
+                  : <span className="muted">-</span>
+                },
+              ]}
+              data={data.inventorySummary.slice(0, 10)}
+              emptyMessage="Sin productos"
+            />
           </div>
         </section>
       )}
@@ -159,7 +200,7 @@ export default function Dashboard() {
       </section>
 
       {/* Low Stock Alerts */}
-      {data.inventory?.alerts?.length > 0 && (
+      {(data.inventory?.alerts?.length > 0 || data.inventory?.lowStock?.length > 0) && (
         <section className="section">
           <h2 className="section-title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Alertas de inventario</h2>
           <div className="card" style={{ padding: 0, overflow: 'hidden', borderColor: 'var(--error)', borderWidth: '1px' }}>
@@ -173,7 +214,7 @@ export default function Dashboard() {
                   <Link to="/dashboard/inventario" className="btn accent" style={{ fontSize: '0.78rem', padding: '0.35rem 0.85rem' }}>Reponer</Link>
                 )},
               ]}
-              data={data.inventory.alerts}
+              data={data.inventory.alerts || data.inventory.lowStock}
             />
           </div>
         </section>

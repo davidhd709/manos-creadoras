@@ -16,10 +16,10 @@ const UserPlusIcon = () => (
 );
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: '', password: '', role: 'buyer', name: '' });
+  const [form, setForm] = useState({ email: '', password: '', name: '' });
   const [mode, setMode] = useState('login');
   const [submitting, setSubmitting] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, mustChangePassword } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -27,9 +27,14 @@ export default function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (mode === 'login') await login(form.email, form.password);
-      else await register(form);
-      toast.success(mode === 'login' ? 'Bienvenido de vuelta' : 'Cuenta creada exitosamente');
+      if (mode === 'login') {
+        await login(form.email, form.password);
+        toast.success('Bienvenido de vuelta');
+      } else {
+        await register({ ...form, role: 'buyer' });
+        toast.success('Cuenta creada exitosamente');
+      }
+      // Redireccion post-login se maneja por ForcePasswordChange si es necesario
       navigate('/');
     } catch (err) {
       const msg = err.response?.data?.message || 'Error de autenticacion';
@@ -41,11 +46,10 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page" role="main">
-      {/* ── Left: Image panel ── */}
+      {/* Left: Image panel */}
       <div className="auth-visual">
         <div className="auth-visual-img" aria-hidden="true" />
         <div className="auth-visual-overlay" aria-hidden="true" />
-
         <div className="auth-visual-content">
           <h2 className="auth-headline">
             Donde cada pieza<br />tiene <em>historia</em>
@@ -56,7 +60,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right: Form ── */}
+      {/* Right: Form */}
       <div className="auth-form-wrap">
         <div className="auth-form-inner">
           <div className="auth-mode-indicator">
@@ -67,49 +71,22 @@ export default function LoginPage() {
           <p className="subtitle">
             {mode === 'login'
               ? 'Ingresa tus credenciales para continuar'
-              : 'Completa tus datos para unirte'
+              : 'Registrate como comprador para explorar el catalogo'
             }
           </p>
 
           <form className="auth-form" onSubmit={submit}>
             {mode === 'register' && (
-              <>
-                <label htmlFor="name">
-                  Nombre completo
-                  <input
-                    id="name"
-                    placeholder="Ej: Maria Garcia"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                  />
-                </label>
-                <label htmlFor="role">
-                  Tipo de cuenta
-                  <div className="auth-role-selector">
-                    <button
-                      type="button"
-                      className={`auth-role-btn ${form.role === 'buyer' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, role: 'buyer' })}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" />
-                      </svg>
-                      Comprador
-                    </button>
-                    <button
-                      type="button"
-                      className={`auth-role-btn ${form.role === 'artisan' ? 'active' : ''}`}
-                      onClick={() => setForm({ ...form, role: 'artisan' })}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /><path d="M20 3v4" /><path d="M22 5h-4" />
-                      </svg>
-                      Artesano
-                    </button>
-                  </div>
-                </label>
-              </>
+              <label htmlFor="name">
+                Nombre completo
+                <input
+                  id="name"
+                  placeholder="Ej: Maria Garcia"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+              </label>
             )}
             <label htmlFor="email">
               Correo electronico

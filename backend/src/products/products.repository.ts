@@ -62,6 +62,17 @@ export class ProductsRepository {
       .exec();
   }
 
+  // Operación atómica: solo decrementa si hay stock suficiente (previene race conditions)
+  async atomicDecrementStock(id: string, quantity: number): Promise<Product | null> {
+    return this.productModel
+      .findOneAndUpdate(
+        { _id: id, stock: { $gte: quantity } },
+        { $inc: { stock: -quantity, soldCount: quantity } },
+        { new: true },
+      )
+      .exec();
+  }
+
   async findLowStock(threshold = 5): Promise<Product[]> {
     return this.productModel
       .find({ stock: { $lte: threshold, $gt: 0 } })
@@ -93,6 +104,14 @@ export class ProductsRepository {
       .populate('buyer', 'name')
       .sort({ createdAt: -1 })
       .exec();
+  }
+
+  async hasUserReviewed(productId: string, userId: string): Promise<boolean> {
+    const review = await this.reviewModel.findOne({
+      product: new Types.ObjectId(productId),
+      buyer: new Types.ObjectId(userId),
+    }).exec();
+    return !!review;
   }
 
   async calculateAverageRating(productId: string): Promise<number> {

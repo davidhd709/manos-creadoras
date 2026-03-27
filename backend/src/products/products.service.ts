@@ -1,12 +1,17 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { ProductsRepository } from './products.repository';
+import { OrdersRepository } from '../orders/orders.repository';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Role } from '../common/roles.enum';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly productsRepository: ProductsRepository) {}
+  constructor(
+    private readonly productsRepository: ProductsRepository,
+    @Inject(forwardRef(() => OrdersRepository))
+    private readonly ordersRepository: OrdersRepository,
+  ) {}
 
   async list(filter: any) {
     const q: any = {};
@@ -61,6 +66,15 @@ export class ProductsService {
     if (user.role !== Role.Admin && product.artisan.toString() !== user.userId) {
       throw new ForbiddenException('No tienes permiso para eliminar este producto');
     }
+
+    // Verificar que no haya órdenes activas con este producto
+    const activeOrders = await this.ordersRepository.findActiveByProduct(id);
+    if (activeOrders.length > 0) {
+      throw new BadRequestException(
+        `No se puede eliminar: hay ${activeOrders.length} orden(es) activa(s) con este producto`,
+      );
+    }
+
     await this.productsRepository.delete(id);
     return { message: 'Producto eliminado correctamente' };
   }
@@ -68,6 +82,18 @@ export class ProductsService {
   async addReview(productId: string, user: any, rating: number, comment: string) {
     const product = await this.productsRepository.findById(productId);
     if (!product) throw new NotFoundException('Producto no encontrado');
+
+    // Validar que el comprador haya comprado el producto
+    const hasPurchased = await this.ordersRepository.hasBuyerPurchasedProduct(user.userId, productId);
+    if (!hasPurchased) {
+      throw new BadRequestException('Solo puedes opinar sobre productos que hayas comprado');
+    }
+
+    // Prevenir reviews duplicados
+    const alreadyReviewed = await this.productsRepository.hasUserReviewed(productId, user.userId);
+    if (alreadyReviewed) {
+      throw new BadRequestException('Ya has dejado una reseña para este producto');
+    }
 
     const review = await this.productsRepository.createReview({
       product: productId as any,

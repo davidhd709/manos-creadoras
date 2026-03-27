@@ -34,6 +34,14 @@ export class ClientsRepository {
     );
   }
 
+  async incrementPurchaseStats(userId: string, totalSpent: number): Promise<void> {
+    await this.clientModel.findOneAndUpdate(
+      { user: userId },
+      { $inc: { totalPurchases: 1, totalSpent } },
+      { upsert: true },
+    );
+  }
+
   async count(): Promise<number> {
     return this.clientModel.countDocuments().exec();
   }

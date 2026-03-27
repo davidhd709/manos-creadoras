@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Order } from './schemas/order.schema';
 
 @Injectable()
@@ -63,7 +63,7 @@ export class OrdersRepository {
 
   async calculateTotalRevenue(): Promise<number> {
     const result = await this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: 'cancelado' } } },
       { $group: { _id: null, total: { $sum: '$totalOrder' } } },
     ]);
     return result[0]?.total || 0;
@@ -71,7 +71,7 @@ export class OrdersRepository {
 
   async calculateRevenueByArtisan(artisanId: string): Promise<number> {
     const result = await this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: 'cancelado' } } },
       { $unwind: '$items' },
       {
         $lookup: {
@@ -82,7 +82,7 @@ export class OrdersRepository {
         },
       },
       { $unwind: '$productData' },
-      { $match: { 'productData.artisan': artisanId } },
+      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
       { $group: { _id: null, total: { $sum: '$items.totalItem' } } },
     ]);
     return result[0]?.total || 0;
@@ -98,9 +98,56 @@ export class OrdersRepository {
       .exec();
   }
 
+  async findByArtisan(artisanId: string): Promise<Order[]> {
+    return this.orderModel.aggregate([
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'items.product',
+          foreignField: '_id',
+          as: 'productData',
+        },
+      },
+      { $unwind: '$productData' },
+      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
+      {
+        $group: {
+          _id: '$_id',
+          buyer: { $first: '$buyer' },
+          items: { $push: '$items' },
+          totalOrder: { $first: '$totalOrder' },
+          status: { $first: '$status' },
+          notes: { $first: '$notes' },
+          createdAt: { $first: '$createdAt' },
+          updatedAt: { $first: '$updatedAt' },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+  }
+
+  async findActiveByProduct(productId: string): Promise<Order[]> {
+    return this.orderModel
+      .find({
+        'items.product': new Types.ObjectId(productId),
+        status: { $in: ['pendiente', 'en_proceso', 'enviado'] },
+      })
+      .exec();
+  }
+
+  async hasBuyerPurchasedProduct(buyerId: string, productId: string): Promise<boolean> {
+    const order = await this.orderModel.findOne({
+      buyer: new Types.ObjectId(buyerId),
+      'items.product': new Types.ObjectId(productId),
+      status: { $in: ['entregado', 'enviado', 'en_proceso'] },
+    }).exec();
+    return !!order;
+  }
+
   async getMonthlySales(): Promise<{ month: string; total: number; count: number }[]> {
     return this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelled' } } },
+      { $match: { status: { $ne: 'cancelado' } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
@@ -111,6 +158,60 @@ export class OrdersRepository {
       { $sort: { _id: -1 } },
       { $limit: 12 },
       { $project: { month: '$_id', total: 1, count: 1, _id: 0 } },
+    ]);
+  }
+
+  async getMonthlySalesByArtisan(artisanId: string): Promise<any[]> {
+    return this.orderModel.aggregate([
+      { $match: { status: { $ne: 'cancelado' } } },
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'items.product',
+          foreignField: '_id',
+          as: 'productData',
+        },
+      },
+      { $unwind: '$productData' },
+      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          total: { $sum: '$items.totalItem' },
+          count: { $sum: '$items.quantity' },
+        },
+      },
+      { $sort: { _id: -1 } },
+      { $limit: 12 },
+      { $project: { month: '$_id', total: 1, count: 1, _id: 0 } },
+    ]);
+  }
+
+  async getRevenueByProductForArtisan(artisanId: string): Promise<any[]> {
+    return this.orderModel.aggregate([
+      { $match: { status: { $ne: 'cancelado' } } },
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'items.product',
+          foreignField: '_id',
+          as: 'productData',
+        },
+      },
+      { $unwind: '$productData' },
+      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
+      {
+        $group: {
+          _id: '$items.product',
+          productTitle: { $first: '$productData.title' },
+          totalRevenue: { $sum: '$items.totalItem' },
+          totalSold: { $sum: '$items.quantity' },
+        },
+      },
+      { $sort: { totalRevenue: -1 } },
+      { $limit: 20 },
     ]);
   }
 }

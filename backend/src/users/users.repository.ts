@@ -19,6 +19,14 @@ export class UsersRepository {
     return this.userModel.findById(id).select('-password').exec();
   }
 
+  async findByIdWithPassword(id: string): Promise<User | null> {
+    return this.userModel.findById(id).exec();
+  }
+
+  async findByDocumentNumber(docNumber: string): Promise<User | null> {
+    return this.userModel.findOne({ documentNumber: docNumber }).exec();
+  }
+
   async findAll(): Promise<User[]> {
     return this.userModel.find().select('-password').exec();
   }
@@ -29,6 +37,10 @@ export class UsersRepository {
 
   async update(id: string, data: Partial<User>): Promise<User | null> {
     return this.userModel.findByIdAndUpdate(id, data, { new: true }).select('-password').exec();
+  }
+
+  async deleteByRole(role: string): Promise<void> {
+    await this.userModel.deleteMany({ role }).exec();
   }
 
   async count(): Promise<number> {

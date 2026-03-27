@@ -1,10 +1,11 @@
-import { Controller, Get, Put, Body, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, UseGuards, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
 import { Roles } from '../common/roles.decorator';
 import { Role } from '../common/roles.enum';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CreateArtisanDto } from './dto/create-artisan.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,5 +32,11 @@ export class UsersController {
   @Put('me')
   updateProfile(@CurrentUser() user: any, @Body() data: { name?: string }) {
     return this.usersService.update(user.userId, data);
+  }
+
+  @Post('artisans')
+  @Roles(Role.SuperAdmin)
+  createArtisan(@Body() dto: CreateArtisanDto) {
+    return this.usersService.createArtisan(dto);
   }
 }

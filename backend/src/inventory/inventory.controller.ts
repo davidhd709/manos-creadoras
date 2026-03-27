@@ -51,4 +51,10 @@ export class InventoryController {
   getOutOfStock() {
     return this.inventoryService.getOutOfStockProducts();
   }
+
+  @Get('artisan/summary')
+  @Roles(Role.Artisan)
+  getArtisanSummary(@CurrentUser() user: any) {
+    return this.inventoryService.getArtisanInventorySummary(user.userId);
+  }
 }

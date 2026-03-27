@@ -11,6 +11,8 @@ import { BannersModule } from './banners/banners.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ClientsModule } from './clients/clients.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { MailModule } from './mail/mail.module';
+import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.module';
 
 @Module({
   imports: [
@@ -31,6 +33,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     InventoryModule,
     ClientsModule,
     DashboardModule,
+    MailModule,
+    ArtisanProfilesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

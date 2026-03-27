@@ -1,0 +1,10 @@
+Para ejecutar:
+
+# Levantar MongoDB
+docker compose up mongodb -d
+
+# Backend
+cd backend && npm run start:dev
+
+# Frontend (en otra terminal)
+cd frontend && npm run dev

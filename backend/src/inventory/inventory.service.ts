@@ -64,6 +64,40 @@ export class InventoryService {
     return this.productsRepository.findOutOfStock();
   }
 
+  async getArtisanInventorySummary(artisanId: string) {
+    const products = await this.productsRepository.findByArtisan(artisanId);
+    const summaries = [];
+
+    for (const product of products) {
+      const movements = await this.inventoryRepository.findByProduct(product._id.toString());
+      const totalEntries = movements
+        .filter((m) => m.type === 'entrada')
+        .reduce((sum, m) => sum + m.quantity, 0);
+      const totalExits = movements
+        .filter((m) => m.type === 'salida')
+        .reduce((sum, m) => sum + m.quantity, 0);
+
+      summaries.push({
+        product: {
+          _id: product._id,
+          title: product.title,
+          category: product.category,
+          price: product.price,
+          isPromotion: product.isPromotion,
+          promotionPrice: product.promotionPrice,
+        },
+        currentStock: product.stock,
+        totalEntries,
+        totalExits,
+        soldCount: product.soldCount || 0,
+        totalMovements: movements.length,
+        lastMovement: (movements[0] as any)?.createdAt || null,
+      });
+    }
+
+    return summaries;
+  }
+
   async getStockAlerts() {
     const [lowStock, outOfStock] = await Promise.all([
       this.productsRepository.findLowStock(5),
