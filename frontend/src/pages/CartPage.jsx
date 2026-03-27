@@ -130,6 +130,11 @@ export default function CartPage() {
                 <Link to="/login" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>Inicia sesion</Link> para completar tu compra
               </p>
             )}
+            {user && user.role === 'buyer' && (
+              <p style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                Asegurate de tener tu <Link to="/dashboard/mi-perfil" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>direccion de envio</Link> actualizada
+              </p>
+            )}
           </div>
         </div>
       )}

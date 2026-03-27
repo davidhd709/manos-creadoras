@@ -86,6 +86,15 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Quick Actions - Buyer */}
+      {user.role === 'buyer' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+          <Link to="/productos" className="btn accent">Explorar catalogo</Link>
+          <Link to="/dashboard/pedidos" className="btn secondary">Mis pedidos</Link>
+          <Link to="/dashboard/mi-perfil" className="btn secondary">Mi perfil / Direccion de envio</Link>
+        </div>
+      )}
+
       {/* Quick Actions */}
       {(user.role === 'superadmin' || user.role === 'admin') && (
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>

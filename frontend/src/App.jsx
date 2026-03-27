@@ -19,6 +19,7 @@ const ArtisanProfilePage = lazy(() => import('./pages/ArtisanProfilePage'));
 const FinancialPage = lazy(() => import('./pages/FinancialPage'));
 const PromotionsPage = lazy(() => import('./pages/PromotionsPage'));
 const ArtisanManagement = lazy(() => import('./pages/ArtisanManagement'));
+const BuyerProfilePage = lazy(() => import('./pages/BuyerProfilePage'));
 
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', artisan: 'Artesano', buyer: 'Mi cuenta' };
 
@@ -173,6 +174,7 @@ export default function App() {
               <Route path="/dashboard/finanzas" element={<FinancialPage />} />
               <Route path="/dashboard/promociones" element={<PromotionsPage />} />
               <Route path="/dashboard/artesanos" element={<ArtisanManagement />} />
+              <Route path="/dashboard/mi-perfil" element={<BuyerProfilePage />} />
             </Routes>
           </Suspense>
         </ForcePasswordChange>
