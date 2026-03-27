@@ -48,7 +48,8 @@ export class ProductsService {
   async update(id: string, dto: UpdateProductDto, user: any) {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
-    if (user.role !== Role.Admin && product.artisan.toString() !== user.userId) {
+    const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
+    if (user.role !== Role.Admin && artisanId !== user.userId) {
       throw new ForbiddenException('No tienes permiso para editar este producto');
     }
 
@@ -63,7 +64,8 @@ export class ProductsService {
   async remove(id: string, user: any) {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
-    if (user.role !== Role.Admin && product.artisan.toString() !== user.userId) {
+    const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
+    if (user.role !== Role.Admin && artisanId !== user.userId) {
       throw new ForbiddenException('No tienes permiso para eliminar este producto');
     }
 
