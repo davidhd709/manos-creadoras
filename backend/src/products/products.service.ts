@@ -16,7 +16,10 @@ export class ProductsService {
   async list(filter: any) {
     const q: any = {};
     if (filter.category) q.category = filter.category;
-    if (filter.search) q.title = { $regex: filter.search, $options: 'i' };
+    if (filter.search) {
+      const escaped = filter.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      q.title = { $regex: escaped, $options: 'i' };
+    }
     if (filter.isPromotion === 'true') q.isPromotion = true;
     if (filter.artisan) q.artisan = filter.artisan;
 

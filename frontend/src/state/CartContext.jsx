@@ -6,8 +6,13 @@ const STORAGE_KEY = 'manos_cart';
 
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      return [];
+    }
   });
 
   useEffect(() => {

@@ -39,8 +39,8 @@ export class OrdersController {
 
   @Get(':id')
   @Roles(Role.Admin, Role.Artisan, Role.Buyer)
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findById(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.ordersService.findByIdWithAuth(id, user);
   }
 
   @Patch(':id/status')

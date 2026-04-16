@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './state/AuthContext';
 import { useCart } from './state/CartContext';
+import { ProtectedRoute, RoleRoute } from './components/ProtectedRoute';
 import Spinner from './ui/Spinner';
 import './styles.css';
 
@@ -35,7 +36,6 @@ const CartIcon = () => (
   </svg>
 );
 
-// Componente que fuerza cambio de password
 const ForcePasswordChange = ({ children }) => {
   const { user, mustChangePassword } = useAuth();
   const navigate = useNavigate();
@@ -50,6 +50,14 @@ const ForcePasswordChange = ({ children }) => {
   return children;
 };
 
+const NotFoundPage = () => (
+  <div style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+    <h1 style={{ fontSize: '3rem', marginBottom: '1rem' }}>404</h1>
+    <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>Pagina no encontrada</p>
+    <Link to="/" className="btn accent">Volver al inicio</Link>
+  </div>
+);
+
 const Header = () => {
   const { user, logout } = useAuth();
   const { items } = useCart();
@@ -62,7 +70,7 @@ const Header = () => {
     <header>
       <nav className="nav-bar" aria-label="Navegacion principal">
         <Link to="/" className="brand">
-          <img src="/logo.png" alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
+          <img src="/logo.png" alt="Manos Creadoras" onError={(e) => (e.currentTarget.style.display = 'none')} />
           <span>Manos<span className="brand-accent">Creadoras</span></span>
         </Link>
 
@@ -148,7 +156,7 @@ const Footer = () => (
 
 export default function App() {
   const location = useLocation();
-  const hideFooter = location.pathname === '/login';
+  const hideFooter = location.pathname.startsWith('/login');
 
   return (
     <>
@@ -160,21 +168,33 @@ export default function App() {
         <ForcePasswordChange>
           <Suspense fallback={<Spinner />}>
             <Routes>
+              {/* Rutas publicas */}
               <Route path="/" element={<HomePage />} />
               <Route path="/productos" element={<ProductList />} />
               <Route path="/productos/:id" element={<ProductDetail />} />
               <Route path="/carrito" element={<CartPage />} />
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/productos" element={<ProductManagement />} />
-              <Route path="/dashboard/pedidos" element={<OrderManagement />} />
-              <Route path="/dashboard/inventario" element={<InventoryPage />} />
-              <Route path="/dashboard/perfil-negocio" element={<ArtisanProfilePage />} />
-              <Route path="/dashboard/finanzas" element={<FinancialPage />} />
-              <Route path="/dashboard/promociones" element={<PromotionsPage />} />
-              <Route path="/dashboard/artesanos" element={<ArtisanManagement />} />
-              <Route path="/dashboard/mi-perfil" element={<BuyerProfilePage />} />
+              <Route path="/cambiar-contrasena" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
+
+              {/* Rutas protegidas - requieren autenticacion */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/dashboard/pedidos" element={<ProtectedRoute><OrderManagement /></ProtectedRoute>} />
+
+              {/* Rutas de artesano */}
+              <Route path="/dashboard/productos" element={<RoleRoute roles={['artisan', 'admin']}><ProductManagement /></RoleRoute>} />
+              <Route path="/dashboard/inventario" element={<RoleRoute roles={['artisan', 'admin']}><InventoryPage /></RoleRoute>} />
+              <Route path="/dashboard/perfil-negocio" element={<RoleRoute roles={['artisan']}><ArtisanProfilePage /></RoleRoute>} />
+              <Route path="/dashboard/finanzas" element={<RoleRoute roles={['artisan', 'admin']}><FinancialPage /></RoleRoute>} />
+              <Route path="/dashboard/promociones" element={<RoleRoute roles={['artisan', 'admin']}><PromotionsPage /></RoleRoute>} />
+
+              {/* Rutas de admin */}
+              <Route path="/dashboard/artesanos" element={<RoleRoute roles={['admin', 'superadmin']}><ArtisanManagement /></RoleRoute>} />
+
+              {/* Rutas de comprador */}
+              <Route path="/dashboard/mi-perfil" element={<RoleRoute roles={['buyer']}><BuyerProfilePage /></RoleRoute>} />
+
+              {/* 404 */}
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>
         </ForcePasswordChange>

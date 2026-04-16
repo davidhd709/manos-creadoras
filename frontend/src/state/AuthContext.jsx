@@ -3,15 +3,24 @@ import api from '../api';
 
 const AuthCtx = createContext();
 
+const safeParse = (key) => {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('user');
-    const mcp = localStorage.getItem('mustChangePassword');
-    if (saved) setUser(JSON.parse(saved));
-    if (mcp === 'true') setMustChangePassword(true);
+    const saved = safeParse('user');
+    if (saved) setUser(saved);
+    if (localStorage.getItem('mustChangePassword') === 'true') setMustChangePassword(true);
   }, []);
 
   const login = async (email, password) => {
@@ -43,7 +52,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.clear();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('mustChangePassword');
     setUser(null);
     setMustChangePassword(false);
   };

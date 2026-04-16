@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { OrdersRepository } from './orders.repository';
 import { ProductsRepository } from '../products/products.repository';
 import { InventoryRepository } from '../inventory/inventory.repository';
@@ -137,6 +137,31 @@ export class OrdersService {
   async findById(id: string) {
     const order = await this.ordersRepository.findById(id);
     if (!order) throw new NotFoundException('Orden no encontrada');
+    return order;
+  }
+
+  async findByIdWithAuth(id: string, user: any) {
+    const order = await this.ordersRepository.findById(id);
+    if (!order) throw new NotFoundException('Orden no encontrada');
+
+    if (user.role === Role.Admin) return order;
+
+    const buyerId = (order.buyer as any)?._id?.toString() ?? order.buyer.toString();
+    if (user.role === Role.Buyer && buyerId !== user.userId) {
+      throw new ForbiddenException('No tienes permiso para ver esta orden');
+    }
+
+    if (user.role === Role.Artisan) {
+      const hasArtisanProduct = order.items.some((item: any) => {
+        const artisan = item.product?.artisan;
+        const artisanId = artisan?._id?.toString() ?? artisan?.toString();
+        return artisanId === user.userId;
+      });
+      if (!hasArtisanProduct) {
+        throw new ForbiddenException('No tienes permiso para ver esta orden');
+      }
+    }
+
     return order;
   }
 
