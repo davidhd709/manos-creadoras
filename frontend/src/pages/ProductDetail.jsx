@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import { useCart } from '../state/CartContext';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
+import ErrorState from '../ui/ErrorState';
 
 const StarFill = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -24,20 +25,24 @@ export default function ProductDetail() {
   const [reviews, setReviews] = useState([]);
   const [form, setForm] = useState({ rating: 5, comment: '' });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { add } = useCart();
+  const { add, items } = useCart();
   const { user } = useAuth();
   const toast = useToast();
 
-  useEffect(() => {
+  const fetchProduct = useCallback(() => {
     setLoading(true);
+    setError(false);
     Promise.all([
       api.get(`/products/${id}`).then(({ data }) => setProduct(data)),
       api.get(`/products/${id}/reviews`).then(({ data }) => setReviews(data)),
     ])
-      .catch(() => toast.error('Error al cargar el producto'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => { fetchProduct(); }, [fetchProduct]);
 
   const submitReview = async (e) => {
     e.preventDefault();
@@ -48,22 +53,35 @@ export default function ProductDetail() {
       const { data } = await api.get(`/products/${id}/reviews`);
       setReviews(data);
       toast.success('Resena enviada correctamente');
-    } catch {
-      toast.error('Error al enviar la resena');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error al enviar la resena';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleAddToCart = () => {
+    if (product.stock <= 0) {
+      toast.error('Este producto esta agotado');
+      return;
+    }
+    const cartItem = items.find((i) => i.product._id === product._id);
+    const currentQty = cartItem ? cartItem.quantity : 0;
+    if (currentQty >= product.stock) {
+      toast.error(`Solo hay ${product.stock} unidades disponibles`);
+      return;
+    }
     add(product);
     toast.success('Producto agregado al carrito');
   };
 
   if (loading) return <Spinner />;
-  if (!product) return <div className="page">Producto no encontrado</div>;
+  if (error) return <div className="page"><ErrorState title="Error al cargar producto" message="No pudimos obtener la informacion del producto." onRetry={fetchProduct} backTo="/productos" backLabel="Volver al catalogo" /></div>;
+  if (!product) return <div className="page"><ErrorState title="Producto no encontrado" message="El producto que buscas no existe o fue eliminado." backTo="/productos" backLabel="Volver al catalogo" /></div>;
 
   const price = product.isPromotion ? product.promotionPrice : product.price;
+  const isOutOfStock = product.stock <= 0;
 
   return (
     <main className="page" role="main">
@@ -79,7 +97,8 @@ export default function ProductDetail() {
         <img
           className="product-detail-img"
           src={product.images?.[0] || 'https://via.placeholder.com/600x500'}
-          alt={product.title}
+          alt={`${product.title} - artesania de ${product.category}`}
+          loading="lazy"
         />
         <div className="product-detail-info">
           <span className="pill accent">{product.category}</span>
@@ -94,6 +113,11 @@ export default function ProductDetail() {
               {product.ratingAverage?.toFixed(1) || '0.0'}
             </span>
             <span className="muted">({reviews.length} resenas)</span>
+            {isOutOfStock ? (
+              <span className="pill" style={{ background: 'var(--error)', color: '#fff', fontSize: '0.75rem' }}>Agotado</span>
+            ) : product.stock <= 5 ? (
+              <span className="pill" style={{ background: 'var(--warning)', color: '#fff', fontSize: '0.75rem' }}>Quedan {product.stock}</span>
+            ) : null}
           </div>
 
           <div className="price-line" style={{ marginBottom: '1rem' }}>
@@ -109,8 +133,14 @@ export default function ProductDetail() {
           <p className="description">{product.description}</p>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-            <button className="btn accent" style={{ flex: 1, padding: '0.85rem' }} onClick={handleAddToCart} aria-label={`Agregar ${product.title} al carrito`}>
-              Agregar al carrito
+            <button
+              className="btn accent"
+              style={{ flex: 1, padding: '0.85rem', opacity: isOutOfStock ? 0.5 : 1 }}
+              onClick={handleAddToCart}
+              disabled={isOutOfStock}
+              aria-label={isOutOfStock ? 'Producto agotado' : `Agregar ${product.title} al carrito`}
+            >
+              {isOutOfStock ? 'Agotado' : 'Agregar al carrito'}
             </button>
             <Link className="btn secondary" style={{ padding: '0.85rem 1.5rem' }} to="/carrito">
               Ver carrito
@@ -118,15 +148,9 @@ export default function ProductDetail() {
           </div>
 
           <div className="trust-row">
-            <div className="trust-item">
-              <CheckIcon /> Envio seguro
-            </div>
-            <div className="trust-item">
-              <CheckIcon /> Artesano verificado
-            </div>
-            <div className="trust-item">
-              <CheckIcon /> Pieza original
-            </div>
+            <div className="trust-item"><CheckIcon /> Envio seguro</div>
+            <div className="trust-item"><CheckIcon /> Artesano verificado</div>
+            <div className="trust-item"><CheckIcon /> Pieza original</div>
           </div>
         </div>
       </article>
@@ -144,9 +168,7 @@ export default function ProductDetail() {
             <div key={r._id} className="review-card">
               <div className="review-header">
                 <span className="review-author">{r.buyer?.name}</span>
-                <span className="review-rating">
-                  <StarFill /> {r.rating}/5
-                </span>
+                <span className="review-rating"><StarFill /> {r.rating}/5</span>
               </div>
               <p>{r.comment}</p>
             </div>
@@ -173,12 +195,8 @@ export default function ProductDetail() {
                     type="button"
                     onClick={() => setForm({ ...form, rating: n })}
                     style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '0.25rem',
-                      color: n <= form.rating ? 'var(--accent-dark)' : 'var(--border)',
-                      transition: 'color 0.15s',
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem',
+                      color: n <= form.rating ? 'var(--accent-dark)' : 'var(--border)', transition: 'color 0.15s',
                     }}
                     aria-label={`${n} estrellas`}
                   >

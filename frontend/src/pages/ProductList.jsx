@@ -1,34 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
 import ProductCard from '../ui/ProductCard';
 import Spinner from '../ui/Spinner';
-import { useToast } from '../ui/Toast';
+import ErrorState from '../ui/ErrorState';
 
 export default function ProductList() {
   const [params] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
+  const [error, setError] = useState(false);
   const category = params.get('category') || '';
   const search = params.get('search') || '';
   const promo = params.get('promo') || '';
   const page = parseInt(params.get('page'), 10) || 1;
 
-  useEffect(() => {
+  const fetchProducts = useCallback(() => {
     setLoading(true);
+    setError(false);
     api
       .get('/products', { params: { category, search, isPromotion: promo ? 'true' : undefined, page } })
       .then(({ data }) => {
         setProducts(data.data || data);
         if (data.pagination) setPagination(data.pagination);
       })
-      .catch(() => toast.error('Error al cargar los productos'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [category, search, promo, page]);
 
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
   if (loading) return <Spinner />;
+  if (error) return <div className="page"><ErrorState title="Error al cargar productos" message="No pudimos obtener el catalogo. Verifica tu conexion e intenta de nuevo." onRetry={fetchProducts} backTo="/" backLabel="Ir al inicio" /></div>;
+
+  const buildPageUrl = (p) => {
+    const q = new URLSearchParams();
+    if (category) q.set('category', category);
+    if (search) q.set('search', search);
+    if (promo) q.set('promo', promo);
+    q.set('page', p);
+    return `/productos?${q.toString()}`;
+  };
 
   return (
     <main className="page" role="main">
@@ -78,14 +91,14 @@ export default function ProductList() {
       {pagination.pages > 1 && (
         <nav className="pagination" aria-label="Paginacion de productos">
           {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((p) => (
-            <a
+            <Link
               key={p}
-              href={`/productos?${new URLSearchParams({ ...(category && { category }), ...(search && { search }), ...(promo && { promo }), page: p }).toString()}`}
+              to={buildPageUrl(p)}
               className={`btn ${p === pagination.page ? 'accent' : 'secondary'}`}
               aria-current={p === pagination.page ? 'page' : undefined}
             >
               {p}
-            </a>
+            </Link>
           ))}
         </nav>
       )}

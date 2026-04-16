@@ -103,13 +103,18 @@ export default function LoginPage() {
               Contrasena
               <input
                 id="password"
-                placeholder="Minimo 6 caracteres"
+                placeholder={mode === 'register' ? 'Min 8 chars, mayuscula, numero y especial' : 'Tu contrasena'}
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
-                minLength={6}
+                minLength={mode === 'register' ? 8 : 1}
               />
+              {mode === 'register' && form.password.length > 0 && form.password.length < 8 && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--error)', marginTop: '0.25rem', display: 'block' }}>
+                  Minimo 8 caracteres, una mayuscula, un numero y un caracter especial
+                </span>
+              )}
             </label>
             <button className="btn accent" style={{ width: '100%', padding: '0.85rem', marginTop: '0.25rem' }} disabled={submitting}>
               {submitting ? 'Procesando...' : mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}

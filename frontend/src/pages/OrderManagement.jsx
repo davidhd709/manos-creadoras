@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
+import ErrorState from '../ui/ErrorState';
 import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
@@ -29,11 +30,13 @@ export default function OrderManagement() {
   const toast = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filter, setFilter] = useState('');
 
-  const fetchOrders = () => {
+  const fetchOrders = useCallback(() => {
     setLoading(true);
+    setError(false);
     const endpoint =
       user.role === 'admin' ? '/orders' :
       user.role === 'artisan' ? '/orders/artisan' :
@@ -41,11 +44,11 @@ export default function OrderManagement() {
 
     api.get(endpoint)
       .then(({ data }) => setOrders(data))
-      .catch(() => toast.error('Error al cargar pedidos'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
-  };
+  }, [user]);
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   const updateStatus = async (orderId, newStatus) => {
     try {
@@ -63,6 +66,7 @@ export default function OrderManagement() {
 
   if (!user) return <div className="page"><div className="empty-state"><h3>Inicia sesion</h3><Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>Iniciar sesion</Link></div></div>;
   if (loading) return <Spinner />;
+  if (error) return <div className="page"><ErrorState title="Error al cargar pedidos" message="No pudimos obtener la lista de pedidos." onRetry={fetchOrders} backTo="/dashboard" backLabel="Volver al dashboard" /></div>;
 
   return (
     <main className="page" role="main">
@@ -169,7 +173,7 @@ export default function OrderManagement() {
               <h4 style={{ margin: '0 0 0.75rem', fontWeight: 600 }}>Productos del pedido</h4>
               {selectedOrder.items?.map((item, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid var(--border-light)', fontSize: '0.9rem' }}>
-                  <span>{item.product?.title || 'Producto'} <span className="muted">x{item.quantity}</span></span>
+                  <span>{item.product?.title || 'Producto eliminado'} <span className="muted">x{item.quantity}</span></span>
                   <span style={{ fontWeight: 600 }}>${item.totalItem?.toLocaleString()}</span>
                 </div>
               ))}

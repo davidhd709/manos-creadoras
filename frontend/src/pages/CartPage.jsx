@@ -11,13 +11,25 @@ const TrashIcon = () => (
   </svg>
 );
 
+const MinusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <path d="M5 12h14" />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <path d="M12 5v14" /><path d="M5 12h14" />
+  </svg>
+);
+
 export default function CartPage() {
-  const { items, total, remove, clear } = useCart();
+  const { items, total, remove, clear, updateQuantity } = useCart();
   const { user } = useAuth();
   const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
 
-  const checkout = async () => {
+  const verifyStockAndCheckout = async () => {
     if (!user) {
       toast.error('Inicia sesion para realizar el pedido');
       return;
@@ -28,6 +40,25 @@ export default function CartPage() {
     }
     setSubmitting(true);
     try {
+      const stockChecks = await Promise.all(
+        items.map((i) => api.get(`/products/${i.product._id}`).then(({ data }) => data))
+      );
+
+      const outOfStock = [];
+      for (let idx = 0; idx < items.length; idx++) {
+        const fresh = stockChecks[idx];
+        const cartItem = items[idx];
+        if (fresh.stock < cartItem.quantity) {
+          outOfStock.push(`"${fresh.title}" tiene ${fresh.stock} unidades (pediste ${cartItem.quantity})`);
+        }
+      }
+
+      if (outOfStock.length > 0) {
+        toast.error(`Stock insuficiente: ${outOfStock[0]}`);
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         items: items.map((i) => ({
           product: i.product._id,
@@ -76,18 +107,43 @@ export default function CartPage() {
           <div className="grid" style={{ gap: '0.75rem' }}>
             {items.map((i) => {
               const unitPrice = i.product.isPromotion ? i.product.promotionPrice : i.product.price;
+              const maxStock = i.product.stock || 999;
               return (
                 <div key={i.product._id} className="cart-item">
                   <img
                     className="cart-item-img"
                     src={i.product.images?.[0] || 'https://via.placeholder.com/80x80'}
-                    alt={i.product.title}
+                    alt={`${i.product.title} en carrito`}
+                    loading="lazy"
                   />
                   <div className="cart-item-info">
                     <strong>{i.product.title}</strong>
                     <span className="muted" style={{ display: 'block', fontSize: '0.82rem' }}>
-                      {i.product.artisan?.name} &middot; Cantidad: {i.quantity}
+                      {i.product.artisan?.name} &middot; ${unitPrice} c/u
                     </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                      <button
+                        className="btn-icon"
+                        onClick={() => updateQuantity(i.product._id, i.quantity - 1)}
+                        aria-label="Reducir cantidad"
+                        style={{ padding: '0.25rem' }}
+                      >
+                        <MinusIcon />
+                      </button>
+                      <span style={{ fontWeight: 600, minWidth: '1.5rem', textAlign: 'center' }}>{i.quantity}</span>
+                      <button
+                        className="btn-icon"
+                        onClick={() => updateQuantity(i.product._id, i.quantity + 1)}
+                        disabled={i.quantity >= maxStock}
+                        aria-label="Aumentar cantidad"
+                        style={{ padding: '0.25rem', opacity: i.quantity >= maxStock ? 0.4 : 1 }}
+                      >
+                        <PlusIcon />
+                      </button>
+                      {i.quantity >= maxStock && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--warning)' }}>Max</span>
+                      )}
+                    </div>
                   </div>
                   <span className="price-main">${unitPrice * i.quantity}</span>
                   <button
@@ -106,7 +162,7 @@ export default function CartPage() {
             <h2>Resumen del pedido</h2>
             <div className="cart-summary-row">
               <span>Subtotal</span>
-              <span>${total}</span>
+              <span>${total.toLocaleString()}</span>
             </div>
             <div className="cart-summary-row">
               <span>Envio</span>
@@ -114,16 +170,16 @@ export default function CartPage() {
             </div>
             <div className="cart-summary-total">
               <span>Total</span>
-              <span>${total}</span>
+              <span>${total.toLocaleString()}</span>
             </div>
             <button
               className="btn accent"
               style={{ width: '100%', marginTop: '1.5rem', padding: '0.85rem' }}
-              onClick={checkout}
+              onClick={verifyStockAndCheckout}
               disabled={submitting || items.length === 0}
               aria-label="Realizar pedido"
             >
-              {submitting ? 'Procesando...' : 'Realizar pedido'}
+              {submitting ? 'Verificando stock...' : 'Realizar pedido'}
             </button>
             {!user && (
               <p style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>

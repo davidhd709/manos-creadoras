@@ -9,24 +9,40 @@ const StarIcon = () => (
 );
 
 export default function ProductCard({ product }) {
-  const { add } = useCart();
+  const { add, items } = useCart();
   const toast = useToast();
   const price = product.isPromotion ? product.promotionPrice : product.price;
+  const isOutOfStock = product.stock <= 0;
 
   const handleAdd = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isOutOfStock) {
+      toast.error('Este producto esta agotado');
+      return;
+    }
+    const cartItem = items.find((i) => i.product._id === product._id);
+    const currentQty = cartItem ? cartItem.quantity : 0;
+    if (currentQty >= product.stock) {
+      toast.error(`Solo hay ${product.stock} unidades disponibles`);
+      return;
+    }
     add(product);
     toast.success(`${product.title} agregado al carrito`);
   };
 
   return (
-    <article className="product-card">
+    <article className="product-card" style={{ opacity: isOutOfStock ? 0.7 : 1 }}>
       <div className="product-img-wrap">
-        <img src={product.images?.[0] || 'https://via.placeholder.com/400x300'} alt={product.title} />
+        <img src={product.images?.[0] || 'https://via.placeholder.com/400x300'} alt={`${product.title} - artesania de ${product.category}`} loading="lazy" />
         {product.isPromotion && (
           <span className="pill promo" style={{ position: 'absolute', top: '0.75rem', left: '0.75rem' }}>
             Oferta
+          </span>
+        )}
+        {isOutOfStock && (
+          <span className="pill" style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'var(--error)', color: '#fff' }}>
+            Agotado
           </span>
         )}
       </div>
@@ -54,11 +70,12 @@ export default function ProductCard({ product }) {
         </Link>
         <button
           className="btn accent"
-          style={{ flex: 1, fontSize: '0.85rem' }}
+          style={{ flex: 1, fontSize: '0.85rem', opacity: isOutOfStock ? 0.5 : 1 }}
           onClick={handleAdd}
-          aria-label={`Agregar ${product.title} al carrito`}
+          disabled={isOutOfStock}
+          aria-label={isOutOfStock ? `${product.title} agotado` : `Agregar ${product.title} al carrito`}
         >
-          Agregar
+          {isOutOfStock ? 'Agotado' : 'Agregar'}
         </button>
       </div>
     </article>

@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import ProductCard from '../ui/ProductCard';
 import Spinner from '../ui/Spinner';
-import { useToast } from '../ui/Toast';
+import ErrorState from '../ui/ErrorState';
 
 const ShieldIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -46,31 +46,44 @@ const CATEGORIES = [
   { name: 'Metal', icon: '⚒️', slug: 'metal' },
 ];
 
+// Fisher-Yates shuffle
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function HomePage() {
   const [banners, setBanners] = useState([]);
   const [top, setTop] = useState([]);
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    setError(false);
     Promise.all([
       api.get('/banners').then(({ data }) => setBanners(data)),
       api.get('/products/top').then(({ data }) => setTop(data)),
     ])
-      .catch(() => toast.error('Error al cargar la pagina principal'))
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <Spinner />;
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Shuffle and take 3 random products for the hero showcase
-  const showcase = [...top].sort(() => Math.random() - 0.5).slice(0, 3);
+  if (loading) return <Spinner />;
+  if (error) return <div className="page"><ErrorState title="Error al cargar" message="No pudimos cargar la pagina principal. Verifica tu conexion." onRetry={fetchData} /></div>;
+
+  const showcase = shuffle(top).slice(0, 3);
 
   return (
     <main role="main">
-      {/* ══ HERO ══ */}
+      {/* HERO */}
       <section className="hero-full" aria-label="Bienvenida">
-        {/* Decorative elements */}
         <div className="hero-bg-grid" aria-hidden="true" />
         <div className="hero-glow hero-glow-1" aria-hidden="true" />
         <div className="hero-glow hero-glow-2" aria-hidden="true" />
@@ -120,20 +133,11 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Floating product showcase */}
           <div className="hero-showcase">
             <div className="showcase-stack">
               {showcase.map((p, i) => (
-                <Link
-                  to={`/productos/${p._id}`}
-                  key={p._id}
-                  className="showcase-card"
-                  style={{ '--i': i }}
-                >
-                  <img
-                    src={p.images?.[0] || 'https://via.placeholder.com/300x300'}
-                    alt={p.title}
-                  />
+                <Link to={`/productos/${p._id}`} key={p._id} className="showcase-card" style={{ '--i': i }}>
+                  <img src={p.images?.[0] || 'https://via.placeholder.com/300x300'} alt={`${p.title} - artesania`} loading="lazy" />
                   <div className="showcase-card-info">
                     <span className="showcase-card-title">{p.title}</span>
                     <span className="showcase-card-price">${p.isPromotion ? p.promotionPrice : p.price}</span>
@@ -141,47 +145,34 @@ export default function HomePage() {
                 </Link>
               ))}
             </div>
-            {/* Decorative ring */}
             <div className="showcase-ring" aria-hidden="true" />
           </div>
         </div>
       </section>
 
-      {/* ══ TRUST BAR ══ */}
+      {/* TRUST BAR */}
       <div className="page" style={{ paddingTop: '0.5rem', paddingBottom: 0 }}>
         <div className="trust-bar">
           <div className="trust-item-bar">
             <div className="trust-icon"><ShieldIcon /></div>
-            <div>
-              <strong>Compra segura</strong>
-              <span>Proteccion al comprador</span>
-            </div>
+            <div><strong>Compra segura</strong><span>Proteccion al comprador</span></div>
           </div>
           <div className="trust-item-bar">
             <div className="trust-icon"><TruckIcon /></div>
-            <div>
-              <strong>Envio rapido</strong>
-              <span>Entrega en 3-5 dias</span>
-            </div>
+            <div><strong>Envio rapido</strong><span>Entrega en 3-5 dias</span></div>
           </div>
           <div className="trust-item-bar">
             <div className="trust-icon"><HeartIcon /></div>
-            <div>
-              <strong>Comercio justo</strong>
-              <span>Apoyo directo al artesano</span>
-            </div>
+            <div><strong>Comercio justo</strong><span>Apoyo directo al artesano</span></div>
           </div>
           <div className="trust-item-bar">
             <div className="trust-icon"><StarIcon /></div>
-            <div>
-              <strong>Calidad garantizada</strong>
-              <span>Artesanos verificados</span>
-            </div>
+            <div><strong>Calidad garantizada</strong><span>Artesanos verificados</span></div>
           </div>
         </div>
       </div>
 
-      {/* ══ BANNERS / PROMOS ══ */}
+      {/* BANNERS */}
       {banners.length > 0 && (
         <div className="page" style={{ paddingTop: 0, paddingBottom: 0 }}>
           <section className="section" aria-label="Promociones">
@@ -194,7 +185,7 @@ export default function HomePage() {
             <div className="promo-grid">
               {banners.slice(0, 4).map((b) => (
                 <div key={b._id} className="promo-card">
-                  <img src={b.imageUrl} alt={b.title} className="promo-card-img" />
+                  <img src={b.imageUrl} alt={`Promocion: ${b.title}`} className="promo-card-img" loading="lazy" />
                   <div className="promo-card-overlay">
                     <h4 className="promo-card-title">{b.title}</h4>
                     <p className="promo-card-desc">{b.description}</p>
@@ -206,7 +197,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ══ CATEGORIES ══ */}
+      {/* CATEGORIES */}
       <div className="page" style={{ paddingTop: 0 }}>
         <section className="section" style={{ marginTop: '1.5rem' }} aria-label="Categorias">
           <div className="section-header">
@@ -225,16 +216,14 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ══ TOP PRODUCTS ══ */}
+        {/* TOP PRODUCTS */}
         <section className="section" aria-label="Productos mas vendidos">
           <div className="section-header">
             <div>
               <h2 className="section-title">Los mas vendidos</h2>
               <p className="section-subtitle">Seleccion curada por demanda y valoraciones</p>
             </div>
-            <Link to="/productos" className="btn secondary">
-              Ver todo
-            </Link>
+            <Link to="/productos" className="btn secondary">Ver todo</Link>
           </div>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
             {top.map((p) => (

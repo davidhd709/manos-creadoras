@@ -8,7 +8,8 @@ export const CartProvider = ({ children }) => {
   const [items, setItems] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      return parsed.filter((i) => i.product && i.quantity > 0);
     } catch {
       localStorage.removeItem(STORAGE_KEY);
       return [];
@@ -20,15 +21,31 @@ export const CartProvider = ({ children }) => {
   }, [items]);
 
   const add = (product, quantity = 1) => {
+    if (product.stock <= 0) return;
     setItems((prev) => {
       const existing = prev.find((p) => p.product._id === product._id);
       if (existing) {
+        const newQty = Math.min(existing.quantity + quantity, product.stock);
         return prev.map((p) =>
-          p.product._id === product._id ? { ...p, quantity: p.quantity + quantity } : p,
+          p.product._id === product._id ? { ...p, quantity: newQty, product } : p,
         );
       }
-      return [...prev, { product, quantity }];
+      return [...prev, { product, quantity: Math.min(quantity, product.stock) }];
     });
+  };
+
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity <= 0) {
+      remove(productId);
+      return;
+    }
+    setItems((prev) =>
+      prev.map((i) =>
+        i.product._id === productId
+          ? { ...i, quantity: Math.min(newQuantity, i.product.stock || 999) }
+          : i,
+      ),
+    );
   };
 
   const remove = (id) => setItems((prev) => prev.filter((p) => p.product._id !== id));
@@ -40,7 +57,7 @@ export const CartProvider = ({ children }) => {
     0,
   );
 
-  return <CartCtx.Provider value={{ items, add, remove, clear, total }}>{children}</CartCtx.Provider>;
+  return <CartCtx.Provider value={{ items, add, updateQuantity, remove, clear, total }}>{children}</CartCtx.Provider>;
 };
 
 export const useCart = () => useContext(CartCtx);
