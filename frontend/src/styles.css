@@ -1643,9 +1643,36 @@ label {
   border-width: 0;
 }
 
+.skip-link {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(-200%);
+  top: 0.5rem;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 10000;
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus {
+  transform: translateX(-50%) translateY(0);
+}
+
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 0;
 }
 
 button:disabled {

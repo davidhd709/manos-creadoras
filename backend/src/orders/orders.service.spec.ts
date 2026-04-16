@@ -1,46 +1,54 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersService } from './orders.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { Order } from './schemas/order.schema';
-import { Product } from '../products/schemas/product.schema';
-import { BadRequestException } from '@nestjs/common';
+import { OrdersRepository } from './orders.repository';
+import { ProductsRepository } from '../products/products.repository';
+import { InventoryRepository } from '../inventory/inventory.repository';
+import { ClientsRepository } from '../clients/clients.repository';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('OrdersService', () => {
   let service: OrdersService;
-  let orderModel: any;
-  let productModel: any;
+  let ordersRepo: Record<string, jest.Mock>;
+  let productsRepo: Record<string, jest.Mock>;
+  let inventoryRepo: Record<string, jest.Mock>;
+  let clientsRepo: Record<string, jest.Mock>;
 
-  const mockProduct = {
-    _id: 'prod1',
-    title: 'Vasija de barro',
-    stock: 10,
-    price: 100,
-  };
-
-  const mockUser = { userId: 'user1', role: 'buyer' };
+  const mockUser = { userId: 'user1', email: 'test@test.com', role: 'buyer' };
 
   beforeEach(async () => {
-    productModel = {
+    ordersRepo = {
+      create: jest.fn().mockImplementation((data) => ({ _id: 'order1', ...data })),
       findById: jest.fn(),
-      findByIdAndUpdate: jest.fn(),
+      findByBuyer: jest.fn().mockResolvedValue([]),
+      findAll: jest.fn().mockResolvedValue([]),
+      findByStatus: jest.fn().mockResolvedValue([]),
+      findByArtisan: jest.fn().mockResolvedValue([]),
+      updateStatus: jest.fn(),
+      getRecentOrders: jest.fn().mockResolvedValue([]),
     };
 
-    orderModel = {
-      create: jest.fn().mockImplementation((data) => Promise.resolve({ _id: 'order1', ...data })),
-      find: jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockReturnValue({
-            exec: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      }),
+    productsRepo = {
+      findById: jest.fn(),
+      atomicDecrementStock: jest.fn(),
+      updateStock: jest.fn(),
+    };
+
+    inventoryRepo = {
+      create: jest.fn().mockResolvedValue({}),
+    };
+
+    clientsRepo = {
+      findByUserId: jest.fn(),
+      incrementPurchaseStats: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
-        { provide: getModelToken(Order.name), useValue: orderModel },
-        { provide: getModelToken(Product.name), useValue: productModel },
+        { provide: OrdersRepository, useValue: ordersRepo },
+        { provide: ProductsRepository, useValue: productsRepo },
+        { provide: InventoryRepository, useValue: inventoryRepo },
+        { provide: ClientsRepository, useValue: clientsRepo },
       ],
     }).compile();
 
@@ -53,37 +61,94 @@ describe('OrdersService', () => {
       totalOrder: 200,
     };
 
-    it('should create an order when stock is sufficient', async () => {
-      productModel.findById.mockResolvedValue({ ...mockProduct, stock: 10 });
-      productModel.findByIdAndUpdate.mockResolvedValue(null);
+    it('should throw if buyer has no shipping address', async () => {
+      clientsRepo.findByUserId.mockResolvedValue(null);
+
+      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if product not found', async () => {
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      productsRepo.findById.mockResolvedValue(null);
+
+      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if stock insufficient', async () => {
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      productsRepo.findById.mockResolvedValue({ title: 'Test', stock: 1, price: 100 });
+
+      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should create order with verified prices from DB', async () => {
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      productsRepo.findById.mockResolvedValue({ title: 'Test', stock: 10, price: 150 });
+      productsRepo.atomicDecrementStock.mockResolvedValue({ stock: 8 });
 
       const result = await service.create(createDto, mockUser);
 
       expect(result).toBeDefined();
-      expect(result._id).toBe('order1');
-      expect(productModel.findByIdAndUpdate).toHaveBeenCalledWith('prod1', {
-        $inc: { stock: -2, soldCount: 2 },
-      });
+      expect(ordersRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          buyer: 'user1',
+          totalOrder: 300,
+        }),
+      );
+    });
+  });
+
+  describe('findByIdWithAuth', () => {
+    const mockOrder = {
+      _id: 'order1',
+      buyer: { _id: 'user1', toString: () => 'user1' },
+      items: [{ product: { artisan: { _id: 'artisan1', toString: () => 'artisan1' } } }],
+    };
+
+    it('should return order for admin', async () => {
+      ordersRepo.findById.mockResolvedValue(mockOrder);
+      const result = await service.findByIdWithAuth('order1', { userId: 'any', role: 'admin' });
+      expect(result).toBe(mockOrder);
     });
 
-    it('should throw BadRequestException when product not found', async () => {
-      productModel.findById.mockResolvedValue(null);
-
-      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    it('should return order for the buyer who owns it', async () => {
+      ordersRepo.findById.mockResolvedValue(mockOrder);
+      const result = await service.findByIdWithAuth('order1', { userId: 'user1', role: 'buyer' });
+      expect(result).toBe(mockOrder);
     });
 
-    it('should throw BadRequestException when stock is insufficient', async () => {
-      productModel.findById.mockResolvedValue({ ...mockProduct, stock: 1 });
+    it('should throw ForbiddenException for different buyer', async () => {
+      ordersRepo.findById.mockResolvedValue(mockOrder);
+      await expect(
+        service.findByIdWithAuth('order1', { userId: 'other-buyer', role: 'buyer' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
 
-      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    it('should return order for artisan who has products in it', async () => {
+      ordersRepo.findById.mockResolvedValue(mockOrder);
+      const result = await service.findByIdWithAuth('order1', { userId: 'artisan1', role: 'artisan' });
+      expect(result).toBe(mockOrder);
+    });
+
+    it('should throw ForbiddenException for artisan without products in order', async () => {
+      ordersRepo.findById.mockResolvedValue(mockOrder);
+      await expect(
+        service.findByIdWithAuth('order1', { userId: 'other-artisan', role: 'artisan' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw NotFoundException if order does not exist', async () => {
+      ordersRepo.findById.mockResolvedValue(null);
+      await expect(
+        service.findByIdWithAuth('nonexistent', { userId: 'user1', role: 'admin' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('myOrders', () => {
     it('should return orders for the buyer', async () => {
-      const result = await service.myOrders(mockUser);
-      expect(orderModel.find).toHaveBeenCalledWith({ buyer: 'user1' });
-      expect(result).toEqual([]);
+      await service.myOrders(mockUser);
+      expect(ordersRepo.findByBuyer).toHaveBeenCalledWith('user1');
     });
   });
 });

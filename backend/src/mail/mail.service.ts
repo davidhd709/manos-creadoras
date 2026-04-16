@@ -63,4 +63,44 @@ export class MailService {
       // No lanzar error para no bloquear la creación del artesano
     }
   }
+
+  async sendPasswordReset(email: string, name: string, token: string): Promise<void> {
+    const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:5173');
+    const resetUrl = `${frontendUrl}/restablecer-contrasena?token=${token}`;
+    try {
+      await this.transporter.sendMail({
+        from: this.config.get('MAIL_FROM', 'noreply@manoscreadoras.com'),
+        to: email,
+        subject: 'Manos Creadoras - Restablece tu contraseña',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; padding: 20px 0; border-bottom: 2px solid #e8833a;">
+              <h1 style="color: #e8833a; margin: 0;">Manos<span style="color: #333;">Creadoras</span></h1>
+            </div>
+            <div style="padding: 30px 0;">
+              <h2 style="color: #333;">Hola ${name},</h2>
+              <p style="color: #555; line-height: 1.6;">
+                Recibimos una solicitud para restablecer tu contrasena. Haz click en el boton de abajo para crear una nueva.
+                Este enlace expira en <strong>1 hora</strong>.
+              </p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" style="background: #e8833a; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                  Restablecer contrasena
+                </a>
+              </div>
+              <p style="color: #999; font-size: 13px; line-height: 1.5;">
+                Si no solicitaste este cambio, puedes ignorar este mensaje. Tu contrasena no sera modificada.
+              </p>
+            </div>
+            <div style="text-align: center; padding: 20px 0; border-top: 1px solid #eee; color: #999; font-size: 12px;">
+              <p>Manos Creadoras - El marketplace de artesanias</p>
+            </div>
+          </div>
+        `,
+      });
+      this.logger.log(`Email de reset enviado a ${email}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email de reset a ${email}: ${error.message}`);
+    }
+  }
 }

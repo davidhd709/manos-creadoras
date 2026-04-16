@@ -6,8 +6,9 @@ import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
 import Table from '../components/Table';
 import Modal from '../components/Modal';
+import ImageUpload from '../components/ImageUpload';
 
-const EMPTY_FORM = { title: '', description: '', price: '', stock: '', category: '', images: '' };
+const EMPTY_FORM = { title: '', description: '', price: '', stock: '', category: '', images: [] };
 
 export default function ProductManagement() {
   const { user } = useAuth();
@@ -44,7 +45,7 @@ export default function ProductManagement() {
       price: String(product.price),
       stock: String(product.stock),
       category: product.category,
-      images: (product.images || []).join(', '),
+      images: product.images || [],
     });
     setModalOpen(true);
   };
@@ -59,7 +60,7 @@ export default function ProductManagement() {
         price: Number(form.price),
         stock: Number(form.stock),
         category: form.category,
-        images: form.images ? form.images.split(',').map((s) => s.trim()).filter(Boolean) : [],
+        images: form.images || [],
       };
 
       if (editing) {
@@ -169,10 +170,10 @@ export default function ProductManagement() {
               <option value="otro">Otro</option>
             </select>
           </label>
-          <label>
-            URLs de imagenes (separadas por coma)
-            <input style={{ width: '100%', marginTop: '0.4rem' }} value={form.images} onChange={(e) => setForm({ ...form, images: e.target.value })} placeholder="url1, url2" />
-          </label>
+          <ImageUpload
+            value={form.images}
+            onChange={(images) => setForm({ ...form, images })}
+          />
           <button className="btn accent" style={{ marginTop: '0.5rem' }} disabled={submitting}>
             {submitting ? 'Guardando...' : editing ? 'Actualizar producto' : 'Crear producto'}
           </button>

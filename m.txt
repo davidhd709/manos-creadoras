@@ -8,3 +8,18 @@ cd backend && npm run start:dev
 
 # Frontend (en otra terminal)
 cd frontend && npm run dev
+
+# En segundo plano (detached)
+docker-compose up --build -d
+
+# Ver logs de un servicio especifico
+docker-compose logs -f backend
+
+# Parar todo
+docker-compose down
+
+# Parar y borrar volumenes (resetea la BD)
+docker-compose down -v
+
+
+docker-compose up -d

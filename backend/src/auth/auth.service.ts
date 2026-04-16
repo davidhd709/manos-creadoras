@@ -1,15 +1,23 @@
 import { Injectable, UnauthorizedException, ConflictException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Role } from '../common/roles.enum';
 
 @Injectable()
 export class AuthService {
-  constructor(private usersService: UsersService, private jwtService: JwtService) {}
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private mailService: MailService,
+  ) {}
 
   async register(dto: RegisterDto) {
     // Solo compradores pueden auto-registrarse
@@ -56,6 +64,46 @@ export class AuthService {
     } as any);
 
     return { message: 'Contrasena actualizada exitosamente' };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersService.findByEmail(dto.email);
+    // Respuesta generica para evitar enumeracion de usuarios
+    const genericResponse = { message: 'Si el correo existe, recibiras instrucciones para restablecer tu contrasena' };
+
+    if (!user || !user.isActive) return genericResponse;
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await this.usersService.update(user._id.toString(), {
+      passwordResetToken: hashedToken,
+      passwordResetExpires: expires,
+    } as any);
+
+    await this.mailService.sendPasswordReset(user.email, user.name, rawToken);
+
+    return genericResponse;
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const hashedToken = crypto.createHash('sha256').update(dto.token).digest('hex');
+    const user = await this.usersService.findByResetToken(hashedToken);
+
+    if (!user) {
+      throw new BadRequestException('Token invalido o expirado');
+    }
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    await this.usersService.update(user._id.toString(), {
+      password: hashed,
+      passwordResetToken: undefined,
+      passwordResetExpires: undefined,
+      mustChangePassword: false,
+    } as any);
+
+    return { message: 'Contrasena restablecida exitosamente' };
   }
 
   private signToken(user: any) {

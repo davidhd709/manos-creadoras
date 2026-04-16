@@ -1,67 +1,51 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsService } from './products.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { Product } from './schemas/product.schema';
-import { Review } from './schemas/review.schema';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ProductsRepository } from './products.repository';
+import { OrdersRepository } from '../orders/orders.repository';
+import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 
 describe('ProductsService', () => {
   let service: ProductsService;
-  let productModel: any;
-  let reviewModel: any;
+  let productsRepo: Record<string, jest.Mock>;
+  let ordersRepo: Record<string, jest.Mock>;
 
   const mockProduct = {
     _id: 'prod1',
     title: 'Vasija artesanal',
-    description: 'Pieza unica',
     price: 150,
     stock: 5,
     category: 'ceramica',
-    artisan: 'artisan1',
-    save: jest.fn(),
-    deleteOne: jest.fn(),
-    toString: () => 'artisan1',
+    artisan: { _id: 'artisan1', toString: () => 'artisan1' },
   };
 
   beforeEach(async () => {
-    productModel = {
-      find: jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          skip: jest.fn().mockReturnValue({
-            limit: jest.fn().mockReturnValue({
-              exec: jest.fn().mockResolvedValue([mockProduct]),
-            }),
-          }),
-        }),
-        sort: jest.fn().mockReturnValue({
-          limit: jest.fn().mockReturnValue({
-            exec: jest.fn().mockResolvedValue([mockProduct]),
-          }),
-        }),
-      }),
+    productsRepo = {
+      findPaginated: jest.fn().mockResolvedValue({ data: [mockProduct], total: 1 }),
+      findTop: jest.fn().mockResolvedValue([mockProduct]),
       findById: jest.fn(),
-      findByIdAndUpdate: jest.fn(),
-      countDocuments: jest.fn().mockResolvedValue(1),
-      create: jest.fn().mockImplementation((data) => Promise.resolve({ _id: 'new1', ...data })),
+      create: jest.fn().mockImplementation((data) => ({ _id: 'new1', ...data })),
+      update: jest.fn().mockResolvedValue(mockProduct),
+      delete: jest.fn(),
+      findByArtisan: jest.fn().mockResolvedValue([mockProduct]),
+      findLowStock: jest.fn().mockResolvedValue([]),
+      findOutOfStock: jest.fn().mockResolvedValue([]),
+      createReview: jest.fn().mockResolvedValue({ _id: 'rev1', rating: 5 }),
+      calculateAverageRating: jest.fn().mockResolvedValue(4.5),
+      updateRating: jest.fn(),
+      hasUserReviewed: jest.fn().mockResolvedValue(false),
+      findReviewsByProduct: jest.fn().mockResolvedValue([]),
     };
 
-    reviewModel = {
-      create: jest.fn().mockResolvedValue({ _id: 'rev1', rating: 5, comment: 'Excelente' }),
-      find: jest.fn().mockReturnValue({
-        populate: jest.fn().mockReturnValue({
-          sort: jest.fn().mockReturnValue({
-            exec: jest.fn().mockResolvedValue([]),
-          }),
-        }),
-      }),
-      aggregate: jest.fn().mockResolvedValue([{ _id: 'prod1', avg: 4.5 }]),
+    ordersRepo = {
+      findActiveByProduct: jest.fn().mockResolvedValue([]),
+      hasBuyerPurchasedProduct: jest.fn().mockResolvedValue(true),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProductsService,
-        { provide: getModelToken(Product.name), useValue: productModel },
-        { provide: getModelToken(Review.name), useValue: reviewModel },
+        { provide: ProductsRepository, useValue: productsRepo },
+        { provide: OrdersRepository, useValue: ordersRepo },
       ],
     }).compile();
 
@@ -76,23 +60,32 @@ describe('ProductsService', () => {
       expect(result.pagination.total).toBe(1);
     });
 
-    it('should filter by category', async () => {
-      await service.list({ category: 'ceramica' });
-      expect(productModel.find).toHaveBeenCalledWith({ category: 'ceramica' });
+    it('should escape regex special characters in search', async () => {
+      await service.list({ search: 'test.*+?' });
+      expect(productsRepo.findPaginated).toHaveBeenCalledWith(
+        expect.objectContaining({ title: { $regex: 'test\\.\\*\\+\\?', $options: 'i' } }),
+        1, 12,
+      );
     });
   });
 
-  describe('top', () => {
-    it('should return top 10 products sorted by soldCount', async () => {
-      const result = await service.top();
-      expect(result).toHaveLength(1);
+  describe('findOne', () => {
+    it('should return product if found', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      const result = await service.findOne('prod1');
+      expect(result).toBe(mockProduct);
+    });
+
+    it('should throw NotFoundException if not found', async () => {
+      productsRepo.findById.mockResolvedValue(null);
+      await expect(service.findOne('x')).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('create', () => {
     it('should create a product with artisan id', async () => {
       const result = await service.create(
-        { title: 'Nueva pieza', description: 'Desc', price: 100, stock: 10, category: 'madera' },
+        { title: 'Nueva', description: 'Desc', price: 100, stock: 10, category: 'madera' } as any,
         { userId: 'artisan1' },
       );
       expect(result.artisan).toBe('artisan1');
@@ -101,28 +94,71 @@ describe('ProductsService', () => {
 
   describe('update', () => {
     it('should throw NotFoundException if product does not exist', async () => {
-      productModel.findById.mockResolvedValue(null);
+      productsRepo.findById.mockResolvedValue(null);
       await expect(
-        service.update('nonexistent', { title: 'Updated' }, { userId: 'artisan1', role: 'artisan' }),
+        service.update('x', { title: 'Updated' } as any, { userId: 'artisan1', role: 'artisan' }),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw ForbiddenException if user is not the owner', async () => {
-      productModel.findById.mockResolvedValue({
-        ...mockProduct,
-        artisan: { toString: () => 'artisan1' },
-      });
+    it('should throw ForbiddenException if artisan is not the owner', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
       await expect(
-        service.update('prod1', { title: 'Updated' }, { userId: 'other_user', role: 'artisan' }),
+        service.update('prod1', { title: 'Updated' } as any, { userId: 'other', role: 'artisan' }),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow admin to update any product', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      await service.update('prod1', { title: 'Updated' } as any, { userId: 'admin1', role: 'admin' });
+      expect(productsRepo.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('should throw BadRequestException if product has active orders', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      ordersRepo.findActiveByProduct.mockResolvedValue([{ _id: 'o1' }]);
+
+      await expect(
+        service.remove('prod1', { userId: 'artisan1', role: 'artisan' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should delete product if no active orders', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      ordersRepo.findActiveByProduct.mockResolvedValue([]);
+
+      const result = await service.remove('prod1', { userId: 'artisan1', role: 'artisan' });
+      expect(result.message).toBe('Producto eliminado correctamente');
+      expect(productsRepo.delete).toHaveBeenCalledWith('prod1');
     });
   });
 
   describe('addReview', () => {
-    it('should create a review and update rating average', async () => {
-      const result = await service.addReview('507f1f77bcf86cd799439011', { userId: 'buyer1' }, 5, 'Excelente');
+    it('should throw if buyer has not purchased the product', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      ordersRepo.hasBuyerPurchasedProduct.mockResolvedValue(false);
+
+      await expect(
+        service.addReview('prod1', { userId: 'buyer1' }, 5, 'Great'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if already reviewed', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      ordersRepo.hasBuyerPurchasedProduct.mockResolvedValue(true);
+      productsRepo.hasUserReviewed.mockResolvedValue(true);
+
+      await expect(
+        service.addReview('prod1', { userId: 'buyer1' }, 5, 'Great'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should create review and update rating', async () => {
+      productsRepo.findById.mockResolvedValue(mockProduct);
+      const result = await service.addReview('prod1', { userId: 'buyer1' }, 5, 'Great');
       expect(result.rating).toBe(5);
-      expect(productModel.findByIdAndUpdate).toHaveBeenCalledWith('507f1f77bcf86cd799439011', { ratingAverage: 4.5 });
+      expect(productsRepo.updateRating).toHaveBeenCalledWith('prod1', 4.5);
     });
   });
 });

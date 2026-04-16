@@ -13,6 +13,7 @@ import { ClientsModule } from './clients/clients.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { MailModule } from './mail/mail.module';
 import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.modul
     DashboardModule,
     MailModule,
     ArtisanProfilesModule,
+    UploadModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

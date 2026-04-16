@@ -1,2 +1,15 @@
 node_modules
 dist
+.env
+.env.*
+coverage
+*.log
+.git
+.gitignore
+.github
+.vscode
+.DS_Store
+*.md
+src/test
+**/*.test.{js,jsx,ts,tsx}
+**/*.spec.{js,jsx,ts,tsx}

@@ -18,6 +18,10 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
+  findByResetToken(hashedToken: string) {
+    return this.usersRepository.findByResetToken(hashedToken);
+  }
+
   findById(id: string) {
     return this.usersRepository.findById(id);
   }

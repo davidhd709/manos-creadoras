@@ -27,6 +27,13 @@ export class UsersRepository {
     return this.userModel.findOne({ documentNumber: docNumber }).exec();
   }
 
+  async findByResetToken(hashedToken: string): Promise<User | null> {
+    return this.userModel.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    }).select('+passwordResetToken +passwordResetExpires').exec();
+  }
+
   async findAll(): Promise<User[]> {
     return this.userModel.find().select('-password').exec();
   }

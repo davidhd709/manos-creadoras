@@ -1,4 +1,15 @@
 node_modules
 dist
 .env
+.env.*
 logs
+coverage
+*.log
+.git
+.gitignore
+.github
+.vscode
+.DS_Store
+*.md
+**/*.spec.ts
+test

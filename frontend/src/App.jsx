@@ -21,6 +21,8 @@ const FinancialPage = lazy(() => import('./pages/FinancialPage'));
 const PromotionsPage = lazy(() => import('./pages/PromotionsPage'));
 const ArtisanManagement = lazy(() => import('./pages/ArtisanManagement'));
 const BuyerProfilePage = lazy(() => import('./pages/BuyerProfilePage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', artisan: 'Artesano', buyer: 'Mi cuenta' };
 
@@ -156,11 +158,13 @@ const Footer = () => (
 
 export default function App() {
   const location = useLocation();
-  const hideFooter = location.pathname.startsWith('/login');
+  const hideFooter = ['/login', '/recuperar-contrasena', '/restablecer-contrasena'].some((p) =>
+    location.pathname.startsWith(p),
+  );
 
   return (
     <>
-      <a href="#main-content" className="sr-only" style={{ position: 'absolute', left: '-9999px' }}>
+      <a href="#main-content" className="skip-link">
         Ir al contenido principal
       </a>
       <Header />
@@ -174,6 +178,8 @@ export default function App() {
               <Route path="/productos/:id" element={<ProductDetail />} />
               <Route path="/carrito" element={<CartPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
+              <Route path="/restablecer-contrasena" element={<ResetPasswordPage />} />
               <Route path="/cambiar-contrasena" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
 
               {/* Rutas protegidas - requieren autenticacion */}
