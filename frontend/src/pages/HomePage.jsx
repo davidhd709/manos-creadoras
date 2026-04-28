@@ -6,6 +6,8 @@ import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
 import Seo from '../lib/Seo';
 import { track } from '../lib/analytics';
+import ArtisanSpotlight from '../components/ArtisanSpotlight';
+import Testimonials from '../components/Testimonials';
 
 const ShieldIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -247,6 +249,28 @@ export default function HomePage() {
             {top.map((p) => (
               <ProductCard key={p._id} product={p} />
             ))}
+          </div>
+        </section>
+
+        <ArtisanSpotlight />
+
+        <Testimonials />
+
+        {/* CTA artesanos */}
+        <section className="section" aria-label="Vende en Manos Creadoras">
+          <div className="card" style={{ padding: '2rem', textAlign: 'center', background: 'linear-gradient(135deg, var(--accent-light), var(--bg-warm))' }}>
+            <h2 style={{ margin: '0 0 0.5rem' }}>¿Eres artesano? Tu vitrina te espera</h2>
+            <p className="muted" style={{ margin: '0 0 1.25rem' }}>
+              0% comision los primeros 3 meses. Aprobacion en menos de 24 horas.
+            </p>
+            <Link
+              to="/vende"
+              className="btn accent"
+              style={{ padding: '0.85rem 2rem' }}
+              onClick={() => track('cta_sell_clicked', { placement: 'home_bottom' })}
+            >
+              Vender en Manos Creadoras
+            </Link>
           </div>
         </section>
       </div>

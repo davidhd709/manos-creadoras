@@ -31,6 +31,8 @@ const LegalPage = lazy(() => import('./pages/LegalPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const FaqPage = lazy(() => import('./pages/FaqPage'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
+const ArtisanPublicPage = lazy(() => import('./pages/ArtisanPublicPage'));
+const ArtisanListPage = lazy(() => import('./pages/ArtisanListPage'));
 
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', artisan: 'Artesano', buyer: 'Mi cuenta' };
 
@@ -99,6 +101,7 @@ const Header = () => {
         <div className="pill-nav">
           <Link to="/" className={isActive('/')}>Inicio</Link>
           <Link to="/productos" className={isActive('/productos')}>Catalogo</Link>
+          <Link to="/artesanos" className={isActive('/artesanos')}>Artesanos</Link>
           <Link to="/vende" className={isActive('/vende')}>Vende</Link>
           <Link to="/carrito" className={`cart-badge ${isActive('/carrito')}`} aria-label="Ver carrito de compras">
             <CartIcon />
@@ -138,9 +141,9 @@ const Footer = () => (
       <div className="footer-col">
         <h4>Explorar</h4>
         <Link to="/productos">Catalogo</Link>
+        <Link to="/artesanos">Artesanos</Link>
         <Link to="/productos?category=ceramica">Ceramica</Link>
         <Link to="/productos?category=tejidos">Tejidos</Link>
-        <Link to="/productos?category=joyeria">Joyeria</Link>
       </div>
       <div className="footer-col">
         <h4>Cuenta</h4>
@@ -190,6 +193,8 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/productos" element={<ProductList />} />
               <Route path="/productos/:id" element={<ProductDetail />} />
+              <Route path="/artesanos" element={<ArtisanListPage />} />
+              <Route path="/artesanos/:slug" element={<ArtisanPublicPage />} />
               <Route path="/carrito" element={<CartPage />} />
               <Route path="/pedido/:id" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/login" element={<LoginPage />} />

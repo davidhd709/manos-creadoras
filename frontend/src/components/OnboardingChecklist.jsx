@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 
+const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL || 'https://manoscreadoras.com';
+
 const STEPS = [
   {
     key: 'profile',
@@ -28,14 +30,42 @@ const STEPS = [
 
 export default function OnboardingChecklist() {
   const [status, setStatus] = useState(null);
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     api.get('/artisan-profiles/me/onboarding')
       .then(({ data }) => setStatus(data))
       .catch(() => setStatus(null));
+    api.get('/artisan-profiles/me')
+      .then(({ data }) => setProfile(data))
+      .catch(() => setProfile(null));
   }, []);
 
   if (!status) return null;
+
+  if (status.completed && profile?.slug) {
+    const url = `${PUBLIC_URL}/artesanos/${profile.slug}`;
+    return (
+      <section className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'linear-gradient(135deg, var(--accent-light), var(--bg-warm))' }}>
+        <h3 style={{ margin: '0 0 0.4rem' }}>Tu vitrina esta lista</h3>
+        <p className="muted" style={{ margin: '0 0 0.75rem', fontSize: '0.9rem' }}>
+          Compartela en tus redes y trae compradores directos a tu taller.
+        </p>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <code style={{ background: '#fff', padding: '0.35rem 0.6rem', borderRadius: 6, border: '1px solid var(--border)', fontSize: '0.82rem' }}>{url}</code>
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => navigator.clipboard?.writeText(url)}
+          >
+            Copiar enlace
+          </button>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn accent">Ver mi vitrina</a>
+        </div>
+      </section>
+    );
+  }
+
   if (status.completed) return null;
 
   const total = STEPS.length;
