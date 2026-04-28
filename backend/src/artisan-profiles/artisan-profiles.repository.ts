@@ -23,4 +23,42 @@ export class ArtisanProfilesRepository {
   async findAll(): Promise<ArtisanProfile[]> {
     return this.model.find().populate('user', 'name email').exec();
   }
+
+  async findBySlug(slug: string): Promise<ArtisanProfile | null> {
+    return this.model
+      .findOne({ slug })
+      .populate('user', 'name email isActive verificationStatus craft region whatsapp instagram')
+      .exec();
+  }
+
+  async findPublic(filter: { craft?: string; region?: string; limit?: number } = {}): Promise<ArtisanProfile[]> {
+    const q: any = { onboardingCompleted: true };
+    if (filter.craft) q.craft = filter.craft;
+    if (filter.region) q.region = filter.region;
+    return this.model
+      .find(q)
+      .populate({
+        path: 'user',
+        match: { isActive: true, verificationStatus: 'approved' },
+        select: 'name craft region',
+      })
+      .sort({ updatedAt: -1 })
+      .limit(filter.limit ?? 24)
+      .exec()
+      .then((rows) => rows.filter((p) => (p as any).user));
+  }
+
+  async featured(limit = 3): Promise<ArtisanProfile[]> {
+    return this.model
+      .find({ onboardingCompleted: true, story: { $exists: true, $ne: '' } })
+      .populate({
+        path: 'user',
+        match: { isActive: true, verificationStatus: 'approved' },
+        select: 'name craft region',
+      })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .exec()
+      .then((rows) => rows.filter((p) => (p as any).user));
+  }
 }

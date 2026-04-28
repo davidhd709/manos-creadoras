@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ArtisanProfilesRepository } from './artisan-profiles.repository';
 import { CreateArtisanProfileDto } from './dto/create-artisan-profile.dto';
 import { ProductsRepository } from '../products/products.repository';
@@ -44,7 +44,7 @@ export class ArtisanProfilesService {
     ]);
     const hasProfile = Boolean(profile?.businessName && profile?.story && profile?.region && profile?.craft);
     const hasProduct = productCount > 0;
-    const hasFirstSale = false; // se conecta cuando haya pedidos por artesano
+    const hasFirstSale = false;
     return {
       profile: hasProfile,
       product: hasProduct,
@@ -56,5 +56,24 @@ export class ArtisanProfilesService {
 
   findAll() {
     return this.repo.findAll();
+  }
+
+  listPublic(filter: { craft?: string; region?: string; limit?: number }) {
+    return this.repo.findPublic(filter);
+  }
+
+  featured(limit = 3) {
+    return this.repo.featured(limit);
+  }
+
+  async getPublicBySlug(slug: string) {
+    const profile = await this.repo.findBySlug(slug);
+    if (!profile) throw new NotFoundException('Artesano no encontrado');
+    const user: any = profile.user;
+    if (!user || !user.isActive || user.verificationStatus !== 'approved') {
+      throw new NotFoundException('Artesano no disponible');
+    }
+    const products = await this.productsRepo.findByArtisan(user._id.toString());
+    return { profile, products };
   }
 }
