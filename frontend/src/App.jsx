@@ -33,6 +33,8 @@ const FaqPage = lazy(() => import('./pages/FaqPage'));
 const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 const ArtisanPublicPage = lazy(() => import('./pages/ArtisanPublicPage'));
 const ArtisanListPage = lazy(() => import('./pages/ArtisanListPage'));
+const BlogListPage = lazy(() => import('./pages/BlogListPage'));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage'));
 
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', artisan: 'Artesano', buyer: 'Mi cuenta' };
 
@@ -155,6 +157,7 @@ const Footer = () => (
       <div className="footer-col">
         <h4>Soporte</h4>
         <Link to="/faq">Preguntas frecuentes</Link>
+        <Link to="/blog">Blog</Link>
         <Link to="/legal/envios">Envios</Link>
         <Link to="/legal/devoluciones">Devoluciones</Link>
         <Link to="/contacto">Contacto</Link>
@@ -195,6 +198,8 @@ export default function App() {
               <Route path="/productos/:id" element={<ProductDetail />} />
               <Route path="/artesanos" element={<ArtisanListPage />} />
               <Route path="/artesanos/:slug" element={<ArtisanPublicPage />} />
+              <Route path="/blog" element={<BlogListPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/carrito" element={<CartPage />} />
               <Route path="/pedido/:id" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/login" element={<LoginPage />} />

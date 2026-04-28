@@ -15,6 +15,7 @@ import { MailModule } from './mail/mail.module';
 import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.module';
 import { UploadModule } from './upload/upload.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { SeoModule } from './seo/seo.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { MetricsModule } from './metrics/metrics.module';
     ArtisanProfilesModule,
     UploadModule,
     MetricsModule,
+    SeoModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

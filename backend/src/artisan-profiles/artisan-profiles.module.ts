@@ -13,6 +13,6 @@ import { ProductsModule } from '../products/products.module';
   ],
   providers: [ArtisanProfilesService, ArtisanProfilesRepository],
   controllers: [ArtisanProfilesController],
-  exports: [ArtisanProfilesService],
+  exports: [ArtisanProfilesService, ArtisanProfilesRepository],
 })
 export class ArtisanProfilesModule {}

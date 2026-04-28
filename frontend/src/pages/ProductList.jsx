@@ -4,6 +4,8 @@ import api from '../api';
 import ProductCard from '../ui/ProductCard';
 import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
+import Seo from '../lib/Seo';
+import { track } from '../lib/analytics';
 
 export default function ProductList() {
   const [params] = useSearchParams();
@@ -31,6 +33,26 @@ export default function ProductList() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+  useEffect(() => {
+    if (!loading && !error) {
+      track('view_item_list', {
+        category: category || (promo ? 'promociones' : 'todos'),
+        item_count: products.length,
+      });
+    }
+  }, [loading, error, products.length, category, promo]);
+
+  const seoTitle = promo
+    ? 'Ofertas en artesanías'
+    : category
+      ? `${category.charAt(0).toUpperCase() + category.slice(1)} artesanal`
+      : 'Catálogo de artesanías';
+  const seoDescription = promo
+    ? 'Promociones especiales de artesanías hechas a mano en Colombia. Cerámica, tejidos, joyería y más.'
+    : category
+      ? `Descubre piezas únicas de ${category} hechas a mano por artesanos colombianos.`
+      : 'Explora más de 300 piezas artesanales hechas en Colombia. Cerámica, tejidos, joyería y mucho más, directo del taller.';
+
   if (loading) return <Spinner />;
   if (error) return <div className="page"><ErrorState title="Error al cargar productos" message="No pudimos obtener el catalogo. Verifica tu conexion e intenta de nuevo." onRetry={fetchProducts} backTo="/" backLabel="Ir al inicio" /></div>;
 
@@ -45,10 +67,19 @@ export default function ProductList() {
 
   return (
     <main className="page" role="main">
-      <nav style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+      <Seo title={seoTitle} description={seoDescription} />
+      <nav aria-label="Migas de pan" style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
         <Link to="/" style={{ color: 'var(--text-secondary)' }}>Inicio</Link>
         {' / '}
-        <span style={{ color: 'var(--text)' }}>Catalogo</span>
+        {category ? (
+          <>
+            <Link to="/productos" style={{ color: 'var(--text-secondary)' }}>Catalogo</Link>
+            {' / '}
+            <span style={{ color: 'var(--text)', textTransform: 'capitalize' }}>{category}</span>
+          </>
+        ) : (
+          <span style={{ color: 'var(--text)' }}>Catalogo</span>
+        )}
       </nav>
 
       <div className="section-header">

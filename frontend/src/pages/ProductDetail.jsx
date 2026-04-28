@@ -6,6 +6,50 @@ import { useAuth } from '../state/AuthContext';
 import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
+import Seo from '../lib/Seo';
+import { track } from '../lib/analytics';
+
+const PUBLIC_URL = import.meta.env.VITE_PUBLIC_URL || 'https://manoscreadoras.com';
+
+function buildProductJsonLd(product, reviews) {
+  const price = product.isPromotion && product.promotionPrice != null ? product.promotionPrice : product.price;
+  const url = `${PUBLIC_URL}/productos/${product._id}`;
+  const lastReviews = (reviews || []).slice(0, 5).map((r) => ({
+    '@type': 'Review',
+    author: { '@type': 'Person', name: r.buyer?.name || 'Comprador' },
+    reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 },
+    reviewBody: r.comment,
+  }));
+  const aggregate = product.ratingAverage && reviews?.length
+    ? {
+      '@type': 'AggregateRating',
+      ratingValue: Number(product.ratingAverage).toFixed(1),
+      reviewCount: reviews.length,
+      bestRating: 5,
+    }
+    : undefined;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.title,
+    description: product.description,
+    image: product.images?.length ? product.images : undefined,
+    sku: product._id,
+    category: product.category,
+    brand: product.artisan?.name ? { '@type': 'Brand', name: product.artisan.name } : undefined,
+    offers: {
+      '@type': 'Offer',
+      url,
+      priceCurrency: 'COP',
+      price,
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+    aggregateRating: aggregate,
+    review: lastReviews.length ? lastReviews : undefined,
+  };
+}
 
 const StarFill = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -44,6 +88,20 @@ export default function ProductDetail() {
 
   useEffect(() => { fetchProduct(); }, [fetchProduct]);
 
+  useEffect(() => {
+    if (product?._id) {
+      const price = product.isPromotion && product.promotionPrice != null ? product.promotionPrice : product.price;
+      track('view_item', {
+        item_id: product._id,
+        item_name: product.title,
+        price,
+        currency: 'COP',
+        category: product.category,
+        artisan_id: product.artisan?._id,
+      });
+    }
+  }, [product]);
+
   const submitReview = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -73,6 +131,14 @@ export default function ProductDetail() {
       return;
     }
     add(product);
+    const price = product.isPromotion && product.promotionPrice != null ? product.promotionPrice : product.price;
+    track('add_to_cart', {
+      item_id: product._id,
+      item_name: product.title,
+      value: price,
+      currency: 'COP',
+      quantity: 1,
+    });
     toast.success('Producto agregado al carrito');
   };
 
@@ -83,12 +149,27 @@ export default function ProductDetail() {
   const price = product.isPromotion ? product.promotionPrice : product.price;
   const isOutOfStock = product.stock <= 0;
 
+  const seoDescription = product.description?.slice(0, 160) || `Conoce ${product.title}, una pieza artesanal hecha a mano por ${product.artisan?.name || 'un artesano colombiano'} en Manos Creadoras.`;
+
   return (
     <main className="page" role="main">
-      <nav style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+      <Seo
+        title={product.title}
+        description={seoDescription}
+        image={product.images?.[0]}
+        type="product"
+        jsonLd={buildProductJsonLd(product, reviews)}
+      />
+      <nav aria-label="Migas de pan" style={{ marginBottom: '1.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
         <Link to="/" style={{ color: 'var(--text-secondary)' }}>Inicio</Link>
         {' / '}
         <Link to="/productos" style={{ color: 'var(--text-secondary)' }}>Catalogo</Link>
+        {product.category && (
+          <>
+            {' / '}
+            <Link to={`/productos?category=${product.category}`} style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{product.category}</Link>
+          </>
+        )}
         {' / '}
         <span style={{ color: 'var(--text)' }}>{product.title}</span>
       </nav>
