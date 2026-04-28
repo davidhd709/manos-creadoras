@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RegisterArtisanDto } from './dto/register-artisan.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LoginThrottleGuard } from '../common/guards/login-throttle.guard';
@@ -20,6 +21,11 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Post('register-artisan')
+  registerArtisan(@Body() dto: RegisterArtisanDto) {
+    return this.authService.registerArtisan(dto);
   }
 
   @Post('login')

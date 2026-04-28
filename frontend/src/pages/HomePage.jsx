@@ -4,6 +4,8 @@ import api from '../api';
 import ProductCard from '../ui/ProductCard';
 import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
+import Seo from '../lib/Seo';
+import { track } from '../lib/analytics';
 
 const ShieldIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -59,6 +61,7 @@ function shuffle(arr) {
 export default function HomePage() {
   const [banners, setBanners] = useState([]);
   const [top, setTop] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -68,6 +71,7 @@ export default function HomePage() {
     Promise.all([
       api.get('/banners').then(({ data }) => setBanners(data)),
       api.get('/products/top').then(({ data }) => setTop(data)),
+      api.get('/metrics/public').then(({ data }) => setMetrics(data)).catch(() => setMetrics(null)),
     ])
       .catch(() => setError(true))
       .finally(() => setLoading(false));
@@ -75,13 +79,20 @@ export default function HomePage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => { track('view_home'); }, []);
+
   if (loading) return <Spinner />;
   if (error) return <div className="page"><ErrorState title="Error al cargar" message="No pudimos cargar la pagina principal. Verifica tu conexion." onRetry={fetchData} /></div>;
 
   const showcase = shuffle(top).slice(0, 3);
+  const showStats = metrics?.hasMinimumScale;
 
   return (
     <main role="main">
+      <Seo
+        title="Marketplace de artesanías hechas en Colombia"
+        description="Descubre piezas únicas hechas a mano por artesanos colombianos. Cerámica, tejidos, joyería y mucho más, directo del taller a tu casa."
+      />
       {/* HERO */}
       <section className="hero-full" aria-label="Bienvenida">
         <div className="hero-bg-grid" aria-hidden="true" />
@@ -96,41 +107,48 @@ export default function HomePage() {
             </span>
 
             <h1 className="hero-title">
-              Arte hecho a mano,<br />
-              directo del <em>artesano</em>
+              Arte hecho en Colombia,<br />
+              directo del <em>taller a tu casa</em>
             </h1>
 
             <p className="hero-desc">
-              Mas de 2,500 piezas unicas de ceramica, tejidos, joyeria y madera.
-              Cada compra apoya directamente a artesanos de Latinoamerica.
+              Mochilas wayuu, ceramica de Raquira, joyeria en filigrana y mucho mas.
+              Compra directo al artesano y apoya el trabajo manual de nuestras regiones.
             </p>
 
             <div className="hero-actions">
-              <Link className="hero-cta" to="/productos">
+              <Link className="hero-cta" to="/productos" onClick={() => track('cta_home_clicked', { placement: 'hero', target: 'catalog' })}>
                 Explorar catalogo
                 <ArrowRight />
               </Link>
-              <Link className="hero-cta-ghost" to="/productos?promo=true">
-                Ver ofertas
+              <Link className="hero-cta-ghost" to="/vende" onClick={() => track('cta_sell_clicked', { placement: 'hero' })}>
+                Vender en Manos Creadoras
               </Link>
             </div>
 
-            <div className="hero-stats">
-              <div className="hero-stat">
-                <span className="hero-stat-value">120+</span>
-                <span className="hero-stat-label">Artesanos</span>
+            {showStats ? (
+              <div className="hero-stats">
+                <div className="hero-stat">
+                  <span className="hero-stat-value">{metrics.artisans}+</span>
+                  <span className="hero-stat-label">Artesanos verificados</span>
+                </div>
+                <div className="hero-stat-divider" />
+                <div className="hero-stat">
+                  <span className="hero-stat-value">{metrics.products}+</span>
+                  <span className="hero-stat-label">Piezas unicas</span>
+                </div>
+                <div className="hero-stat-divider" />
+                <div className="hero-stat">
+                  <span className="hero-stat-value">{metrics.orders}+</span>
+                  <span className="hero-stat-label">Pedidos atendidos</span>
+                </div>
               </div>
-              <div className="hero-stat-divider" />
-              <div className="hero-stat">
-                <span className="hero-stat-value">2,500+</span>
-                <span className="hero-stat-label">Piezas</span>
+            ) : (
+              <div className="hero-tag" style={{ marginTop: '1.5rem' }}>
+                <span className="hero-tag-dot" />
+                Beta abierta — primeros artesanos onboarding
               </div>
-              <div className="hero-stat-divider" />
-              <div className="hero-stat">
-                <span className="hero-stat-value">4.9</span>
-                <span className="hero-stat-label">Rating</span>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="hero-showcase">

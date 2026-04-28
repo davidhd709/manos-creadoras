@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { Role } from '../../common/roles.enum';
 
 export enum DocumentType {
@@ -7,6 +7,12 @@ export enum DocumentType {
   CE = 'CE',
   NIT = 'NIT',
   PAS = 'PAS',
+}
+
+export enum VerificationStatus {
+  Pending = 'pending',
+  Approved = 'approved',
+  Rejected = 'rejected',
 }
 
 @Schema({ timestamps: true })
@@ -40,6 +46,28 @@ export class User extends Document {
 
   @Prop({ select: false })
   passwordResetExpires?: Date;
+
+  // Solo aplica a artesanos auto-registrados
+  @Prop({ enum: VerificationStatus })
+  verificationStatus?: VerificationStatus;
+
+  @Prop()
+  whatsapp?: string;
+
+  @Prop()
+  instagram?: string;
+
+  @Prop()
+  craft?: string;
+
+  @Prop()
+  region?: string;
+
+  @Prop()
+  applicationNotes?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  referredBy?: Types.ObjectId;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

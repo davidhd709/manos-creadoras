@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /carrito
+Disallow: /login
+Disallow: /recuperar-contrasena
+Disallow: /restablecer-contrasena
+Disallow: /cambiar-contrasena
+
+Sitemap: https://manoscreadoras.com/sitemap.xml

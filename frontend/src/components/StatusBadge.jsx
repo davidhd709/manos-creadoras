@@ -1,5 +1,6 @@
 const STATUS_CONFIG = {
-  pendiente: { label: 'Pendiente', bg: 'bg-yellow-100', text: 'text-yellow-800' },
+  awaiting_payment: { label: 'Esperando pago', bg: 'bg-orange-100', text: 'text-orange-800' },
+  pendiente: { label: 'Pago confirmado', bg: 'bg-yellow-100', text: 'text-yellow-800' },
   en_proceso: { label: 'En proceso', bg: 'bg-blue-100', text: 'text-blue-800' },
   enviado: { label: 'Enviado', bg: 'bg-purple-100', text: 'text-purple-800' },
   entregado: { label: 'Entregado', bg: 'bg-green-100', text: 'text-green-800' },

@@ -44,6 +44,14 @@ export class OrdersRepository {
       .exec();
   }
 
+  async updatePaymentAndStatus(id: string, paymentStatus: string, status: string): Promise<Order | null> {
+    return this.orderModel
+      .findByIdAndUpdate(id, { paymentStatus, status }, { new: true })
+      .populate('buyer', 'name email')
+      .populate('items.product')
+      .exec();
+  }
+
   async findByStatus(status: string): Promise<Order[]> {
     return this.orderModel
       .find({ status })

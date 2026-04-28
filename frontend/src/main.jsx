@@ -5,7 +5,10 @@ import App from './App';
 import { AuthProvider } from './state/AuthContext';
 import { CartProvider } from './state/CartContext';
 import { ToastProvider } from './ui/Toast';
+import { initAnalytics } from './lib/analytics';
 import './styles.css';
+
+initAnalytics();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import api from '../api';
 import { useToast } from '../ui/Toast';
+import { compressImage } from '../lib/compressImage';
 
 const UploadIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -26,11 +27,12 @@ export default function ImageUpload({ value = [], onChange, max = 5, label = 'Im
       return;
     }
 
-    const formData = new FormData();
-    Array.from(files).forEach((f) => formData.append('files', f));
-
     setUploading(true);
     try {
+      const compressed = await Promise.all(Array.from(files).map((f) => compressImage(f)));
+      const formData = new FormData();
+      compressed.forEach((f) => formData.append('files', f));
+
       const { data } = await api.post('/upload/images', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });

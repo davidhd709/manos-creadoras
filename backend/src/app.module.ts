@@ -14,6 +14,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { MailModule } from './mail/mail.module';
 import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.module';
 import { UploadModule } from './upload/upload.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { UploadModule } from './upload/upload.module';
     MailModule,
     ArtisanProfilesModule,
     UploadModule,
+    MetricsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

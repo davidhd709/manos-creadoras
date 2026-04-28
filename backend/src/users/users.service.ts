@@ -1,9 +1,9 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { UsersRepository } from './users.repository';
 import { MailService } from '../mail/mail.service';
-import { User } from './schemas/user.schema';
+import { User, VerificationStatus } from './schemas/user.schema';
 import { CreateArtisanDto } from './dto/create-artisan.dto';
 import { Role } from '../common/roles.enum';
 
@@ -54,6 +54,41 @@ export class UsersService {
     return this.usersRepository.countByRole(role);
   }
 
+  findPendingArtisans() {
+    return this.usersRepository.findPendingArtisans();
+  }
+
+  async approveArtisan(id: string) {
+    const user = await this.usersRepository.findById(id);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (user.role !== Role.Artisan) throw new BadRequestException('El usuario no es artesano');
+    if (user.verificationStatus === VerificationStatus.Approved && user.isActive) {
+      return user;
+    }
+    const updated = await this.usersRepository.update(id, {
+      verificationStatus: VerificationStatus.Approved,
+      isActive: true,
+    } as any);
+    if (updated) {
+      await this.mailService.sendArtisanApproved(updated.email, updated.name).catch(() => {});
+    }
+    return updated;
+  }
+
+  async rejectArtisan(id: string, reason?: string) {
+    const user = await this.usersRepository.findById(id);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    if (user.role !== Role.Artisan) throw new BadRequestException('El usuario no es artesano');
+    const updated = await this.usersRepository.update(id, {
+      verificationStatus: VerificationStatus.Rejected,
+      isActive: false,
+    } as any);
+    if (updated) {
+      await this.mailService.sendArtisanRejected(updated.email, updated.name, reason).catch(() => {});
+    }
+    return updated;
+  }
+
   async createArtisan(dto: CreateArtisanDto) {
     const existsByEmail = await this.usersRepository.findByEmail(dto.email);
     if (existsByEmail) throw new ConflictException('El correo ya esta registrado');
@@ -75,7 +110,8 @@ export class UsersService {
       documentNumber: dto.documentNumber,
       mustChangePassword: true,
       isActive: true,
-    });
+      verificationStatus: VerificationStatus.Approved,
+    } as any);
 
     // Enviar email con credenciales (no bloquea si falla)
     await this.mailService.sendArtisanWelcome(dto.email, dto.name, rawPassword);

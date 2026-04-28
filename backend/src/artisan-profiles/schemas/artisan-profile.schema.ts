@@ -42,6 +42,25 @@ export class ArtisanProfile extends Document {
 
   @Prop()
   bankName: string;
+
+  // Perfil público enriquecido
+  @Prop()
+  story: string;
+
+  @Prop()
+  craft: string;
+
+  @Prop()
+  region: string;
+
+  @Prop()
+  coverImage: string;
+
+  @Prop({ unique: true, sparse: true, index: true })
+  slug: string;
+
+  @Prop({ default: false })
+  onboardingCompleted: boolean;
 }
 
 export const ArtisanProfileSchema = SchemaFactory.createForClass(ArtisanProfile);

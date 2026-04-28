@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../state/AuthContext';
 import { useToast } from '../ui/Toast';
+import Seo from '../lib/Seo';
 
 const LockIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -30,11 +31,10 @@ const EyeIcon = ({ open }) => (
 );
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: '', password: '', name: '' });
-  const [mode, setMode] = useState('login');
+  const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -42,13 +42,8 @@ export default function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (mode === 'login') {
-        await login(form.email, form.password);
-        toast.success('Bienvenido de vuelta');
-      } else {
-        await register({ ...form, role: 'buyer' });
-        toast.success('Cuenta creada exitosamente');
-      }
+      await login(form.email, form.password);
+      toast.success('Bienvenido de vuelta');
       navigate('/');
     } catch (err) {
       const msg = err.response?.data?.message || 'Error de autenticacion';
@@ -60,6 +55,7 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page" role="main">
+      <Seo title="Iniciar sesion" description="Ingresa a tu cuenta de Manos Creadoras." noindex />
       <div className="auth-visual">
         <div className="auth-visual-img" aria-hidden="true" />
         <div className="auth-visual-overlay" aria-hidden="true" />
@@ -75,33 +71,12 @@ export default function LoginPage() {
 
       <div className="auth-form-wrap">
         <div className="auth-form-inner">
-          <div className="auth-mode-indicator" aria-hidden="true">
-            {mode === 'login' ? <LockIcon /> : <UserPlusIcon />}
-          </div>
+          <div className="auth-mode-indicator" aria-hidden="true"><LockIcon /></div>
 
-          <h1 id="auth-title">{mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}</h1>
-          <p className="subtitle">
-            {mode === 'login'
-              ? 'Ingresa tus credenciales para continuar'
-              : 'Registrate como comprador para explorar el catalogo'
-            }
-          </p>
+          <h1 id="auth-title">Iniciar sesion</h1>
+          <p className="subtitle">Ingresa tus credenciales para continuar.</p>
 
           <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="auth-title">
-            {mode === 'register' && (
-              <label htmlFor="name">
-                Nombre completo
-                <input
-                  id="name"
-                  placeholder="Ej: Maria Garcia"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                  autoComplete="name"
-                  minLength={2}
-                />
-              </label>
-            )}
             <label htmlFor="email">
               Correo electronico
               <input
@@ -117,23 +92,19 @@ export default function LoginPage() {
             <label htmlFor="password">
               <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Contrasena</span>
-                {mode === 'login' && (
-                  <Link to="/recuperar-contrasena" style={{ fontSize: '0.78rem', color: 'var(--accent-dark)', fontWeight: 500 }}>
-                    Olvidaste tu contrasena?
-                  </Link>
-                )}
+                <Link to="/recuperar-contrasena" style={{ fontSize: '0.78rem', color: 'var(--accent-dark)', fontWeight: 500 }}>
+                  Olvidaste tu contrasena?
+                </Link>
               </span>
               <div style={{ position: 'relative' }}>
                 <input
                   id="password"
-                  placeholder={mode === 'register' ? 'Min 8 chars, mayuscula, numero y especial' : 'Tu contrasena'}
+                  placeholder="Tu contrasena"
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   required
-                  minLength={mode === 'register' ? 8 : 1}
-                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                  aria-describedby={mode === 'register' ? 'password-hint' : undefined}
+                  autoComplete="current-password"
                   style={{ paddingRight: '2.5rem' }}
                 />
                 <button
@@ -150,29 +121,20 @@ export default function LoginPage() {
                   <EyeIcon open={showPassword} />
                 </button>
               </div>
-              {mode === 'register' && (
-                <span id="password-hint" style={{ fontSize: '0.75rem', color: form.password.length > 0 && form.password.length < 8 ? 'var(--error)' : 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
-                  Minimo 8 caracteres con mayuscula, minuscula, numero y caracter especial
-                </span>
-              )}
             </label>
             <button className="btn accent" style={{ width: '100%', padding: '0.85rem', marginTop: '0.25rem' }} disabled={submitting}>
-              {submitting ? 'Procesando...' : mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
+              {submitting ? 'Procesando...' : 'Iniciar sesion'}
             </button>
           </form>
 
           <div className="auth-divider"><span>o</span></div>
 
           <div className="auth-toggle">
-            {mode === 'login' ? (
-              <>No tienes cuenta? <button type="button" onClick={() => setMode('register')}>Crea una gratis</button></>
-            ) : (
-              <>Ya tienes cuenta? <button type="button" onClick={() => setMode('login')}>Inicia sesion</button></>
-            )}
+            ¿No tienes cuenta? <Link to="/registro" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>Crea una gratis</Link>
           </div>
 
           <p className="auth-footer-text">
-            Al continuar, aceptas nuestros terminos de servicio y politica de privacidad.
+            ¿Eres artesano? <Link to="/vende" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>Vende en Manos Creadoras</Link>
           </p>
         </div>
       </div>

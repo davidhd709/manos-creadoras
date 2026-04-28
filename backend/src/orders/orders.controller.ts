@@ -53,6 +53,12 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto, user);
   }
 
+  @Patch(':id/confirm-payment')
+  @Roles(Role.Admin, Role.Artisan)
+  confirmPayment(@Param('id') id: string) {
+    return this.ordersService.confirmPayment(id);
+  }
+
   @Get()
   @Roles(Role.Admin)
   all() {

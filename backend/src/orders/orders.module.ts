@@ -7,6 +7,7 @@ import { Order, OrderSchema } from './schemas/order.schema';
 import { ProductsModule } from '../products/products.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ClientsModule } from '../clients/clients.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ClientsModule } from '../clients/clients.module';
     forwardRef(() => ProductsModule),
     forwardRef(() => InventoryModule),
     forwardRef(() => ClientsModule),
+    MailModule,
   ],
   providers: [OrdersService, OrdersRepository],
   controllers: [OrdersController],

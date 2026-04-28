@@ -18,6 +18,13 @@ export class ArtisanProfilesController {
     return this.service.getProfile(user.userId);
   }
 
+  @Get('me/onboarding')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.Artisan)
+  getOnboardingStatus(@CurrentUser() user: any) {
+    return this.service.getOnboardingStatus(user.userId);
+  }
+
   @Put('me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.Artisan)

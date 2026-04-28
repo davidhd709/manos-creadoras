@@ -9,7 +9,9 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { RegisterArtisanDto } from './dto/register-artisan.dto';
 import { Role } from '../common/roles.enum';
+import { VerificationStatus } from '../users/schemas/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -32,10 +34,56 @@ export class AuthService {
     return this.signToken(user);
   }
 
+  async registerArtisan(dto: RegisterArtisanDto) {
+    const exists = await this.usersService.findByEmail(dto.email);
+    if (exists) throw new ConflictException('El correo ya esta registrado');
+
+    let referredBy: any = undefined;
+    if (dto.referralCode) {
+      const referrer = await this.usersService.findById(dto.referralCode);
+      if (referrer && referrer.role === Role.Artisan) {
+        referredBy = referrer._id;
+      }
+    }
+
+    const hashed = await bcrypt.hash(dto.password, 10);
+    const user = await this.usersService.create({
+      name: dto.name,
+      email: dto.email,
+      password: hashed,
+      role: Role.Artisan,
+      whatsapp: dto.whatsapp,
+      instagram: dto.instagram,
+      craft: dto.craft,
+      region: dto.region,
+      applicationNotes: dto.applicationNotes,
+      verificationStatus: VerificationStatus.Pending,
+      isActive: false,
+      mustChangePassword: false,
+      referredBy,
+    } as any);
+
+    await this.mailService.sendArtisanApplicationReceived(user.email, user.name).catch(() => {});
+    await this.mailService.notifyAdminNewArtisanApplication(user).catch(() => {});
+
+    return {
+      message: 'Recibimos tu solicitud. Te avisaremos en menos de 24 horas cuando tu cuenta este aprobada.',
+      status: VerificationStatus.Pending,
+    };
+  }
+
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Credenciales invalidas');
-    if (!user.isActive) throw new UnauthorizedException('Tu cuenta ha sido desactivada');
+    if (!user.isActive) {
+      if (user.verificationStatus === VerificationStatus.Pending) {
+        throw new UnauthorizedException('Tu solicitud de artesano esta en revision. Te avisaremos por correo cuando este aprobada.');
+      }
+      if (user.verificationStatus === VerificationStatus.Rejected) {
+        throw new UnauthorizedException('Tu solicitud de artesano fue rechazada. Escribenos para mas detalles.');
+      }
+      throw new UnauthorizedException('Tu cuenta ha sido desactivada');
+    }
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Credenciales invalidas');
 

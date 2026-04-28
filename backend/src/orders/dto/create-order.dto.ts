@@ -1,5 +1,6 @@
-import { IsArray, IsNumber, IsString, IsOptional, ValidateNested, Min } from 'class-validator';
+import { IsArray, IsNumber, IsString, IsOptional, IsEnum, ValidateNested, Min, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod } from '../schemas/order.schema';
 
 class OrderItemDto {
   @IsString()
@@ -27,4 +28,12 @@ export class CreateOrderDto {
   @IsOptional()
   @IsNumber()
   totalOrder?: number;
+
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  customerNotes?: string;
 }

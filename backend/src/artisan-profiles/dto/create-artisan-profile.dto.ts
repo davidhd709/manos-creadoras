@@ -43,4 +43,24 @@ export class CreateArtisanProfileDto {
   @IsOptional()
   @IsString()
   bankName?: string;
+
+  @IsOptional()
+  @IsString()
+  story?: string;
+
+  @IsOptional()
+  @IsString()
+  craft?: string;
+
+  @IsOptional()
+  @IsString()
+  region?: string;
+
+  @IsOptional()
+  @IsString()
+  coverImage?: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;
 }

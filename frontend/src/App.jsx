@@ -4,6 +4,7 @@ import { useAuth } from './state/AuthContext';
 import { useCart } from './state/CartContext';
 import { ProtectedRoute, RoleRoute } from './components/ProtectedRoute';
 import Spinner from './ui/Spinner';
+import usePageTracking from './lib/usePageTracking';
 import './styles.css';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -23,6 +24,13 @@ const ArtisanManagement = lazy(() => import('./pages/ArtisanManagement'));
 const BuyerProfilePage = lazy(() => import('./pages/BuyerProfilePage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const SellPage = lazy(() => import('./pages/SellPage'));
+const ArtisanRegisterPage = lazy(() => import('./pages/ArtisanRegisterPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const FaqPage = lazy(() => import('./pages/FaqPage'));
+const OrderConfirmation = lazy(() => import('./pages/OrderConfirmation'));
 
 const ROLE_LABELS = { superadmin: 'Super Admin', admin: 'Admin', artisan: 'Artesano', buyer: 'Mi cuenta' };
 
@@ -91,7 +99,7 @@ const Header = () => {
         <div className="pill-nav">
           <Link to="/" className={isActive('/')}>Inicio</Link>
           <Link to="/productos" className={isActive('/productos')}>Catalogo</Link>
-          <Link to="/productos?promo=true">Ofertas</Link>
+          <Link to="/vende" className={isActive('/vende')}>Vende</Link>
           <Link to="/carrito" className={`cart-badge ${isActive('/carrito')}`} aria-label="Ver carrito de compras">
             <CartIcon />
             {items.length > 0 && <span className="badge-count">{items.length}</span>}
@@ -124,41 +132,47 @@ const Footer = () => (
           Manos<span className="brand-accent">Creadoras</span>
         </div>
         <p className="footer-desc">
-          El marketplace de artesanias mas grande de Latinoamerica. Conectamos artesanos con amantes del arte hecho a mano.
+          Marketplace de artesanias hechas en Colombia. Compra directo del taller del artesano.
         </p>
       </div>
       <div className="footer-col">
         <h4>Explorar</h4>
         <Link to="/productos">Catalogo</Link>
-        <Link to="/productos?promo=true">Ofertas</Link>
         <Link to="/productos?category=ceramica">Ceramica</Link>
         <Link to="/productos?category=tejidos">Tejidos</Link>
+        <Link to="/productos?category=joyeria">Joyeria</Link>
       </div>
       <div className="footer-col">
         <h4>Cuenta</h4>
         <Link to="/login">Iniciar sesion</Link>
-        <Link to="/login">Registrarse</Link>
-        <Link to="/dashboard">Mi dashboard</Link>
+        <Link to="/registro">Crear cuenta</Link>
+        <Link to="/vende">Vender en MC</Link>
         <Link to="/carrito">Mi carrito</Link>
       </div>
       <div className="footer-col">
         <h4>Soporte</h4>
-        <Link to="/">Centro de ayuda</Link>
-        <Link to="/">Politicas de envio</Link>
-        <Link to="/">Devoluciones</Link>
-        <Link to="/">Contacto</Link>
+        <Link to="/faq">Preguntas frecuentes</Link>
+        <Link to="/legal/envios">Envios</Link>
+        <Link to="/legal/devoluciones">Devoluciones</Link>
+        <Link to="/contacto">Contacto</Link>
+      </div>
+      <div className="footer-col">
+        <h4>Legal</h4>
+        <Link to="/legal/terminos">Terminos y condiciones</Link>
+        <Link to="/legal/privacidad">Politica de privacidad</Link>
       </div>
     </div>
     <div className="footer-bottom">
-      <span>2024 ManosCreadoras. Todos los derechos reservados.</span>
-      <span>Hecho con dedicacion en Latinoamerica</span>
+      <span>{new Date().getFullYear()} ManosCreadoras. Todos los derechos reservados.</span>
+      <span>Hecho en Colombia</span>
     </div>
   </footer>
 );
 
 export default function App() {
   const location = useLocation();
-  const hideFooter = ['/login', '/recuperar-contrasena', '/restablecer-contrasena'].some((p) =>
+  usePageTracking();
+  const hideFooter = ['/login', '/registro', '/recuperar-contrasena', '/restablecer-contrasena'].some((p) =>
     location.pathname.startsWith(p),
   );
 
@@ -177,7 +191,14 @@ export default function App() {
               <Route path="/productos" element={<ProductList />} />
               <Route path="/productos/:id" element={<ProductDetail />} />
               <Route path="/carrito" element={<CartPage />} />
+              <Route path="/pedido/:id" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/registro" element={<RegisterPage />} />
+              <Route path="/registro/artesano" element={<ArtisanRegisterPage />} />
+              <Route path="/vende" element={<SellPage />} />
+              <Route path="/legal/:slug" element={<LegalPage />} />
+              <Route path="/contacto" element={<ContactPage />} />
+              <Route path="/faq" element={<FaqPage />} />
               <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
               <Route path="/restablecer-contrasena" element={<ResetPasswordPage />} />
               <Route path="/cambiar-contrasena" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />

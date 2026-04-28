@@ -42,6 +42,14 @@ export class UsersRepository {
     return this.userModel.find({ role }).select('-password').exec();
   }
 
+  async findPendingArtisans(): Promise<User[]> {
+    return this.userModel
+      .find({ role: 'artisan', verificationStatus: 'pending' })
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
   async update(id: string, data: Partial<User>): Promise<User | null> {
     return this.userModel.findByIdAndUpdate(id, data, { new: true }).select('-password').exec();
   }

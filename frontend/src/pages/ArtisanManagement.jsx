@@ -11,9 +11,11 @@ export default function ArtisanManagement() {
   const { user } = useAuth();
   const toast = useToast();
   const [artisans, setArtisans] = useState([]);
+  const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [actionId, setActionId] = useState(null);
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -22,15 +24,45 @@ export default function ArtisanManagement() {
     provisionalPassword: '',
   });
 
-  const fetchArtisans = () => {
+  const fetchAll = () => {
     setLoading(true);
-    api.get('/users/role/artisan')
-      .then(({ data }) => setArtisans(data))
+    Promise.all([
+      api.get('/users/role/artisan').then(({ data }) => setArtisans(data)),
+      api.get('/users/artisans/pending').then(({ data }) => setPending(data)).catch(() => setPending([])),
+    ])
       .catch(() => toast.error('Error al cargar artesanos'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchArtisans(); }, []);
+  useEffect(() => { fetchAll(); }, []);
+
+  const approve = async (id) => {
+    setActionId(id);
+    try {
+      await api.patch(`/users/artisans/${id}/approve`);
+      toast.success('Artesano aprobado y notificado por correo');
+      fetchAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No se pudo aprobar');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const reject = async (id) => {
+    const reason = window.prompt('Motivo (opcional, se enviara por correo):');
+    if (reason === null) return;
+    setActionId(id);
+    try {
+      await api.patch(`/users/artisans/${id}/reject`, { reason });
+      toast.success('Solicitud rechazada');
+      fetchAll();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No se pudo rechazar');
+    } finally {
+      setActionId(null);
+    }
+  };
 
   const openCreate = () => {
     setForm({ name: '', email: '', documentType: 'CC', documentNumber: '', provisionalPassword: '' });
@@ -47,7 +79,7 @@ export default function ArtisanManagement() {
       });
       toast.success('Artesano creado. Se envio un correo con las credenciales.');
       setModalOpen(false);
-      fetchArtisans();
+      fetchAll();
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al crear artesano';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
@@ -73,6 +105,42 @@ export default function ArtisanManagement() {
         </div>
         <button className="btn accent" onClick={openCreate}>Crear artesano</button>
       </div>
+
+      {pending.length > 0 && (
+        <section className="card" style={{ padding: '1.25rem', marginTop: '1.5rem', border: '1px solid var(--warning-light)', background: '#fffaf3' }}>
+          <h3 style={{ margin: '0 0 0.25rem' }}>Solicitudes pendientes ({pending.length})</h3>
+          <p className="muted" style={{ margin: '0 0 1rem', fontSize: '0.85rem' }}>
+            Revisa la informacion y aprueba para que el artesano pueda ingresar y publicar.
+          </p>
+          <div className="grid" style={{ gap: '0.75rem' }}>
+            {pending.map((p) => (
+              <div key={p._id} className="card" style={{ padding: '1rem', display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }}>
+                <div>
+                  <strong>{p.name}</strong>
+                  <span className="muted" style={{ display: 'block', fontSize: '0.82rem' }}>{p.email}</span>
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.85rem' }}>
+                    <span><strong>Oficio:</strong> {p.craft || '—'}</span>{' · '}
+                    <span><strong>Region:</strong> {p.region || '—'}</span>{' · '}
+                    <span><strong>WhatsApp:</strong> {p.whatsapp || '—'}</span>
+                    {p.instagram && <> · <span><strong>IG:</strong> {p.instagram}</span></>}
+                  </div>
+                  {p.applicationNotes && (
+                    <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.82rem' }}>{p.applicationNotes}</p>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn accent" disabled={actionId === p._id} onClick={() => approve(p._id)}>
+                    {actionId === p._id ? '...' : 'Aprobar'}
+                  </button>
+                  <button className="btn secondary" disabled={actionId === p._id} onClick={() => reject(p._id)}>
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: '1.5rem' }}>
         <Table

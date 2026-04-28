@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Body, UseGuards, Param } from '@nestjs/common';
+import { Controller, Get, Put, Post, Patch, Body, UseGuards, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../common/roles.guard';
@@ -38,5 +38,23 @@ export class UsersController {
   @Roles(Role.SuperAdmin)
   createArtisan(@Body() dto: CreateArtisanDto) {
     return this.usersService.createArtisan(dto);
+  }
+
+  @Get('artisans/pending')
+  @Roles(Role.Admin, Role.SuperAdmin)
+  pendingArtisans() {
+    return this.usersService.findPendingArtisans();
+  }
+
+  @Patch('artisans/:id/approve')
+  @Roles(Role.Admin, Role.SuperAdmin)
+  approveArtisan(@Param('id') id: string) {
+    return this.usersService.approveArtisan(id);
+  }
+
+  @Patch('artisans/:id/reject')
+  @Roles(Role.Admin, Role.SuperAdmin)
+  rejectArtisan(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.usersService.rejectArtisan(id, body?.reason);
   }
 }

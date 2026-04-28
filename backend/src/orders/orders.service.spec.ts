@@ -4,6 +4,8 @@ import { OrdersRepository } from './orders.repository';
 import { ProductsRepository } from '../products/products.repository';
 import { InventoryRepository } from '../inventory/inventory.repository';
 import { ClientsRepository } from '../clients/clients.repository';
+import { MailService } from '../mail/mail.service';
+import { PaymentMethod } from './schemas/order.schema';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('OrdersService', () => {
@@ -12,6 +14,7 @@ describe('OrdersService', () => {
   let productsRepo: Record<string, jest.Mock>;
   let inventoryRepo: Record<string, jest.Mock>;
   let clientsRepo: Record<string, jest.Mock>;
+  let mailService: Record<string, jest.Mock>;
 
   const mockUser = { userId: 'user1', email: 'test@test.com', role: 'buyer' };
 
@@ -24,6 +27,7 @@ describe('OrdersService', () => {
       findByStatus: jest.fn().mockResolvedValue([]),
       findByArtisan: jest.fn().mockResolvedValue([]),
       updateStatus: jest.fn(),
+      updatePaymentAndStatus: jest.fn(),
       getRecentOrders: jest.fn().mockResolvedValue([]),
     };
 
@@ -42,6 +46,11 @@ describe('OrdersService', () => {
       incrementPurchaseStats: jest.fn(),
     };
 
+    mailService = {
+      sendOrderCreatedBuyer: jest.fn().mockResolvedValue(undefined),
+      notifyArtisansNewOrder: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrdersService,
@@ -49,6 +58,7 @@ describe('OrdersService', () => {
         { provide: ProductsRepository, useValue: productsRepo },
         { provide: InventoryRepository, useValue: inventoryRepo },
         { provide: ClientsRepository, useValue: clientsRepo },
+        { provide: MailService, useValue: mailService },
       ],
     }).compile();
 
@@ -56,9 +66,10 @@ describe('OrdersService', () => {
   });
 
   describe('create', () => {
-    const createDto = {
+    const createDto: any = {
       items: [{ product: 'prod1', quantity: 2, unitPrice: 100, totalItem: 200 }],
       totalOrder: 200,
+      paymentMethod: PaymentMethod.Whatsapp,
     };
 
     it('should throw if buyer has no shipping address', async () => {

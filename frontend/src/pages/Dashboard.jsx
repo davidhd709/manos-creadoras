@@ -8,6 +8,7 @@ import ErrorState from '../ui/ErrorState';
 import StatsCard from '../components/StatsCard';
 import Table from '../components/Table';
 import StatusBadge from '../components/StatusBadge';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 
 const ROLE_TITLES = {
   superadmin: 'Panel Super Administrador',
@@ -64,6 +65,8 @@ export default function Dashboard() {
           <p className="section-subtitle">Bienvenido, {user.name || 'usuario'}</p>
         </div>
       </div>
+
+      {user.role === 'artisan' && <OnboardingChecklist />}
 
       {/* Stats */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>

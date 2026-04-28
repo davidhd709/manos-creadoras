@@ -10,6 +10,7 @@ import StatusBadge from '../components/StatusBadge';
 import Modal from '../components/Modal';
 
 const STATUS_FLOW = {
+  awaiting_payment: ['pendiente', 'cancelado'],
   pendiente: ['en_proceso', 'cancelado'],
   en_proceso: ['enviado', 'cancelado'],
   enviado: ['entregado'],
@@ -18,11 +19,18 @@ const STATUS_FLOW = {
 };
 
 const STATUS_LABELS = {
-  pendiente: 'Pendiente',
+  awaiting_payment: 'Esperando pago',
+  pendiente: 'Pago confirmado',
   en_proceso: 'En proceso',
   enviado: 'Enviado',
   entregado: 'Entregado',
   cancelado: 'Cancelado',
+};
+
+const PAYMENT_LABELS = {
+  whatsapp: 'WhatsApp',
+  transfer: 'Transferencia',
+  cod: 'Contra entrega',
 };
 
 export default function OrderManagement() {
@@ -58,6 +66,18 @@ export default function OrderManagement() {
       setSelectedOrder(null);
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al actualizar';
+      toast.error(Array.isArray(msg) ? msg[0] : msg);
+    }
+  };
+
+  const confirmPayment = async (orderId) => {
+    try {
+      await api.patch(`/orders/${orderId}/confirm-payment`);
+      toast.success('Pago confirmado');
+      fetchOrders();
+      setSelectedOrder(null);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Error al confirmar pago';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
     }
   };
@@ -111,6 +131,7 @@ export default function OrderManagement() {
             { key: 'items', label: 'Productos', render: (r) => r.items?.length || 0 },
             { key: 'total', label: 'Total', render: (r) => <span style={{ fontWeight: 600 }}>${r.totalOrder?.toLocaleString()}</span> },
             { key: 'status', label: 'Estado', render: (r) => <StatusBadge status={r.status} /> },
+            { key: 'paymentMethod', label: 'Pago', render: (r) => PAYMENT_LABELS[r.paymentMethod] || r.paymentMethod || '-' },
             ...(user.role !== 'buyer' ? [{
               key: 'actions',
               label: 'Acciones',
@@ -118,7 +139,16 @@ export default function OrderManagement() {
                 const nextStates = STATUS_FLOW[r.status] || [];
                 if (nextStates.length === 0) return <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Finalizado</span>;
                 return (
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    {r.status === 'awaiting_payment' && r.paymentMethod !== 'cod' && (
+                      <button
+                        className="btn accent"
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
+                        onClick={() => confirmPayment(r._id)}
+                      >
+                        Confirmar pago
+                      </button>
+                    )}
                     {nextStates.map((s) => (
                       <button
                         key={s}
