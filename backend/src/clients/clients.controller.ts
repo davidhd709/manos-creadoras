@@ -25,19 +25,19 @@ export class ClientsController {
   }
 
   @Get()
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   getAll() {
     return this.clientsService.getAll();
   }
 
   @Get('top')
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   topClients(@Query('limit') limit?: string) {
     return this.clientsService.getTopClients(limit ? parseInt(limit, 10) : 10);
   }
 
   @Get(':userId/history')
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   getClientHistory(@Param('userId') userId: string) {
     return this.clientsService.getClientWithHistory(userId);
   }

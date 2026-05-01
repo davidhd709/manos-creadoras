@@ -25,10 +25,17 @@ export class ProductsRepository {
     filter: Record<string, any>,
     page: number,
     limit: number,
+    sort: Record<string, 1 | -1> = { soldCount: -1, ratingAverage: -1, createdAt: -1 },
   ): Promise<{ data: Product[]; total: number }> {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
-      this.productModel.find(filter).populate('artisan', 'name').skip(skip).limit(limit).exec(),
+      this.productModel
+        .find(filter)
+        .populate('artisan', 'name')
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       this.productModel.countDocuments(filter),
     ]);
     return { data, total };
@@ -40,6 +47,33 @@ export class ProductsRepository {
 
   async findByArtisan(artisanId: string): Promise<Product[]> {
     return this.productModel.find({ artisan: artisanId }).exec();
+  }
+
+  async aggregateArtisanStats(artisanId: string): Promise<{
+    totalProducts: number;
+    totalSold: number;
+    avgRating: number;
+    ratedProducts: number;
+  }> {
+    const result = await this.productModel.aggregate([
+      { $match: { artisan: new Types.ObjectId(artisanId) } },
+      {
+        $group: {
+          _id: null,
+          totalProducts: { $sum: 1 },
+          totalSold: { $sum: '$soldCount' },
+          avgRating: { $avg: { $cond: [{ $gt: ['$ratingAverage', 0] }, '$ratingAverage', null] } },
+          ratedProducts: { $sum: { $cond: [{ $gt: ['$ratingAverage', 0] }, 1, 0] } },
+        },
+      },
+    ]);
+    const r = result[0] || {};
+    return {
+      totalProducts: r.totalProducts || 0,
+      totalSold: r.totalSold || 0,
+      avgRating: r.avgRating || 0,
+      ratedProducts: r.ratedProducts || 0,
+    };
   }
 
   async update(id: string, data: Partial<Product>): Promise<Product | null> {

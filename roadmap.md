@@ -378,3 +378,175 @@ Tablero: Looker Studio sobre BigQuery export GA4 + export semanal a Sheet del en
 3. Implementar `POST /auth/register-artisan` y `/registro/artesano`.
 4. Crear `frontend/src/pages/SellPage.jsx` con la propuesta de valor a artesanos.
 5. Diseñar el selector de método de pago en `CartPage.jsx` y la página `OrderConfirmation`.
+
+---
+
+## 13. Plan por fases — Estado actual
+
+> Plan paralelo al roadmap operativo, enfocado en madurar el producto que ya está vivo.
+> Última actualización: 2026-05-01.
+
+### FASE 1 — Conversión y experiencia del comprador  ✅ COMPLETADA
+
+#### Sub-entrega 1.1 — Catálogo, filtros y badges  ✅
+- `backend/src/products/products.service.ts` — filtros `minPrice`, `maxPrice`, `minRating`, `inStock` y `sort` (`relevance | bestsellers | rating | newest | price_asc | price_desc`); default ordena por `soldCount → ratingAverage → createdAt`.
+- `backend/src/products/products.repository.ts` — `findPaginated` ahora acepta `sort`.
+- `backend/src/products/schemas/product.schema.ts` — índices simples en `price`, `stock`, `ratingAverage`; índices compuestos `category+price` y `category+soldCount`.
+- `frontend/src/pages/ProductList.jsx` — chips de categoría, rango de precio, valoración mínima, toggles "solo disponibles" / "en oferta", select de orden, chips de filtros activos, botón "limpiar todo". Persistencia en URL.
+- `frontend/src/ui/ProductCard.jsx` — badges acumulables (Oferta, Agotado, Quedan N≤3, Más vendido ≥10, Top valorado ≥4.5★, Nuevo ≤30d), badge de descuento `-X%`, precio con separador de miles `es-CO`.
+- Test backend ajustado a la nueva firma de `findPaginated`.
+
+#### Sub-entrega 1.2 — Detalle de producto + confianza  ✅
+- `frontend/src/pages/ProductDetail.jsx` rediseñado:
+  - Galería con imagen principal + thumbnails clicables.
+  - Stepper de cantidad con validación contra stock; botón principal muestra subtotal calculado.
+  - Stock badge con tres estados (ok / quedan ≤5 / agotado).
+  - Grid de 4 beneficios (envío, devolución, pago seguro, autenticidad).
+  - Tarjeta de artesano con fetch lazy a `/artisan-profiles/:userId` (cover, logo, story, craft+region, link a perfil público por slug).
+  - Cross-sell: 4 productos relacionados de la misma categoría reutilizando `/products?category=X` con filtro client-side.
+  - FAQ acordeón con 4 preguntas (envíos, devoluciones, autenticidad, pagos).
+  - Reviews con header de "rating summary" (puntuación grande + estrellas). Cada review marca al autor con check de "comprador verificado".
+- Sin cambios en backend ni schemas.
+
+#### Sub-entrega 1.3 — Carrito reforzado  ✅
+- `frontend/src/state/CartContext.jsx`:
+  - Persistencia versionada (`{ version: 2, items, savedAt }`) con compatibilidad hacia atrás con el formato legacy (array plano).
+  - `revalidate()` que trae estado fresco de cada producto y emite avisos tipados (`unavailable`, `out_of_stock`, `reduced`, `price_change`); ajusta cantidades y refresca el `product` con datos vigentes.
+  - Helpers nuevos: `subtotal`, `savings` (suma de `(price − promotionPrice) × qty`), `count` (total unidades). `total` mantenido como alias de `subtotal`.
+  - `warnings` y `dismissWarning(productId)`.
+  - Try/catch en `localStorage.setItem`.
+- `frontend/src/pages/CartPage.jsx`:
+  - Revalidación automática al entrar; toast + banner si algo cambió.
+  - Avisos por línea (rojo/amarillo/azul según el tipo).
+  - Cada línea muestra precio original tachado, ahorro por línea, advertencias de stock crítico o error si excede.
+  - Resumen extendido: subtotal, ahorro por ofertas (verde), envío estimado, total estimado.
+  - Selector de zona de envío (3 opciones) con costo + tiempo estimado.
+  - Barra de progreso hacia envío gratis (umbral $250.000) o badge verde si ya califica.
+  - Botón "Vaciar carrito" con `window.confirm`.
+  - Imagen y título del item ahora linkean al detalle.
+  - Trust row al fondo del summary.
+- `frontend/src/state/CartContext.test.jsx` — test de persistencia adaptado, 2 tests nuevos (legacy rehydrate, savings/subtotal/count).
+
+#### Sub-entrega 1.4 — Checkout + perfil de envío inline  ✅
+- `backend/src/orders/orders.service.ts` — validaciones añadidas: `phone` con ≥7 chars y rechazo de items vacíos.
+- `frontend/src/components/ShippingProfileBlock.jsx` (nuevo) — carga `/clients/me`, muestra resumen verde si está completo o formulario inline si falta. Reporta estado vía `onReadyChange(boolean)`.
+- `frontend/src/pages/CartPage.jsx` — integra el bloque al inicio de la columna izquierda; bloquea botón ("Completa tu envío") si shipping no está listo. Pre-flight con scroll suave si el usuario fuerza el submit. Post-mortem: si el backend rechaza por perfil reabre el formulario; si rechaza por stock dispara `revalidate()`.
+- `frontend/src/pages/BuyerProfilePage.jsx` — `phone` ahora es obligatorio (`required` + `inputMode="tel"`), soporte de `?return=/carrito` para redirigir tras guardar.
+- `frontend/src/pages/OrderConfirmation.jsx` — timeline visual de 5 pasos (esperando pago → pago confirmado → en proceso → enviado → entregado), oculto si la orden está cancelada. Acentos corregidos.
+- Test backend nuevo: "should throw if buyer has no phone".
+
+**Estado consolidado FASE 1:** 46 tests backend + 20 tests frontend en verde, build vite OK.
+
+---
+
+### FASE 2 — Atraer y retener artesanos  ⏳ EN CURSO
+
+Objetivos: subir oferta y calidad del marketplace mejorando perfil público, beneficios visibles, dashboard y gestión de productos.
+
+#### Sub-entrega 2.1 — Perfil público del artesano  ✅
+- `backend/src/products/products.repository.ts` — método `aggregateArtisanStats(artisanId)` que devuelve `{ totalProducts, totalSold, avgRating, ratedProducts }`.
+- `backend/src/artisan-profiles/artisan-profiles.service.ts` — `getPublicBySlug` ahora devuelve `{ profile, products, stats }`.
+- `frontend/src/pages/ArtisanPublicPage.jsx` rediseñado:
+  - Hero con logo circular sobre cover, tag "verificado" con tiempo en plataforma, oficio·región y tagline opcional.
+  - Strip de stats (piezas publicadas, piezas vendidas, valoración, origen).
+  - Sección "Sobre el taller" con tipografía editorial y comilla decorativa.
+  - Filtros por categoría sobre los productos del artesano (chips).
+  - Botón compartir nativo con fallback a portapapeles + tracking `share_artisan_profile`.
+  - CTA flotante de WhatsApp en mobile con tracking dedicado.
+  - Migas de pan, mejores acentos y links a redes/sitio.
+
+#### Sub-entrega 2.2 — Landing `/vende` y registro de artesanos  ✅
+- `frontend/src/pages/SellPage.jsx`:
+  - Texto con acentos correctos en todas las secciones.
+  - Nueva sección "Comisiones transparentes" con 4 tiers visuales (Mes 1–3 a 0%, Desde Mes 4 al 8%) que comunican el modelo sin ambigüedad.
+  - Sección "Lo que dicen los artesanos" con 3 success cards (avatar + cita + métrica) — placeholders editables cuando haya casos reales.
+  - FAQ ampliada con la pregunta "¿Y si no vendo nada?" para reducir miedo a registrarse.
+  - CTA final con link a login para artesanos que ya tengan cuenta.
+- `frontend/src/pages/ArtisanRegisterPage.jsx`:
+  - Layout 2 columnas: formulario + panel lateral con beneficios y testimonio.
+  - Migas de pan + secciones agrupadas con micro-titulares ("Tus datos personales", "Tu oficio y región", "Cómo te contactamos").
+  - Medidor de fortaleza de contraseña (5 niveles, color dinámico).
+  - Toggle de mostrar/ocultar contraseña.
+  - Validación bloquea envío si la contraseña tiene score < 3.
+  - Pantalla de éxito enriquecida con checklist de "qué hacer mientras esperas aprobación" y dos CTAs.
+  - Acentos correctos en todos los textos y placeholders, regiones y oficios actualizados.
+- `frontend/src/styles.css`: bloques nuevos para `commission-tier`, `success-card`, `register-grid`, `password-strength`, `success-checklist`. Responsive a 1 columna bajo 900px.
+
+- [x] **Landing `/vende` (SellPage)** y `ArtisanRegisterPage` — explicar comisiones, exposición, soporte, tiempos de aprobación, casos de éxito.
+
+#### Sub-entrega 2.3 — Dashboard del artesano  ✅
+- `backend/src/dashboard/dashboard.service.ts` — `getArtisanDashboard` ahora calcula: `ordersToAct`, `awaitingPayment`, `inProgress`, `readyToShip`, `productsWithoutReviews`, `outOfStockMine`, `monthGrowthPct`, `thisMonthRevenue`. Devuelve `ordersToAct` (lista) y `inventorySummary` con `ratingAverage` por producto.
+- `frontend/src/pages/Dashboard.jsx`:
+  - Saludo contextual por hora ("Buenos días/tardes/noches, {nombre}").
+  - CTA principal "Nuevo producto" en el header del artesano.
+  - Banner urgente cuando hay pedidos por atender (con desglose: esperando pago / listos / en proceso) + CTA directo a `/dashboard/pedidos`.
+  - Banner informativo con ingresos del mes y crecimiento vs mes anterior (verde/rojo).
+  - Stats reordenadas con énfasis en "Por atender" → ingresos → productos → "Sin reseñas".
+- `frontend/src/styles.css` — bloques `dashboard-banner`, `dashboard-banner-urgent`, `dashboard-banner-info` con responsive.
+
+- [x] **Dashboard del artesano** — métricas reordenadas, banners contextuales, saludo dinámico.
+- [x] **Métricas accionables del artesano** — vistas (telemetría existente), productos sin stock/reseñas, crecimiento mensual.
+
+#### Sub-entrega 2.5 — Gestión de productos  ✅
+- `frontend/src/pages/ProductManagement.jsx`:
+  - Mini-stats inline (Total / En stock / Bajo stock / Agotados / Sin reseñas / En oferta) con colores semánticos.
+  - Buscador por título + chips de filtro (Todos, En stock, Bajo stock, Agotados, Sin reseñas, En oferta).
+  - Columnas enriquecidas: thumbnail del producto, alerta "Sin imagen", precio con tachado en oferta, formato COP, columna de reseñas con score o "Sin reseñas".
+  - Acción "Ver" en cada fila que abre el detalle público en nueva pestaña.
+  - Confirmación clara al eliminar y mensaje del backend si hay error (p. ej. órdenes activas).
+  - Empty state distinguido: primer producto vs filtro sin resultados.
+- `frontend/src/styles.css` — `.pm-stat` con variantes success/warning/error.
+
+- [x] **Gestión de productos** — filtros, mini-stats, mejor edición y validación visual.
+
+---
+
+### FASE 3 — Mejoras técnicas del backend  ✅ COMPLETADA
+
+- [x] **Índices Mongo**: `Product` (price, stock, ratingAverage + compuestos category+price y category+soldCount), `Order` (buyer+createdAt, status+createdAt, items.product, paymentMethod+status), `User` (role+isActive, role+verificationStatus), `Review` (product+createdAt, buyer+product unique).
+- [x] **Filtros y sort en `/products`** — minPrice, maxPrice, minRating, inStock, sort (relevance/bestsellers/rating/newest/price_asc/price_desc).
+- [x] **Validaciones reforzadas en `/orders`** — phone obligatorio, items vacíos, address+city.
+- [x] **Métricas backend** — `aggregateArtisanStats` y `getArtisanDashboard` enriquecido.
+- [x] **Seguridad — CORS y body limits**: `main.ts` ahora acepta lista separada por comas en `FRONTEND_URL` con validación dinámica de origen y `BODY_LIMIT` configurable (default `2mb`).
+- [x] **Rate limiting** — ya existía vía `ThrottlerModule` (60s/30 req).
+- [x] **Persistencia versionada del carrito** (frontend) — fixed en sub-entrega 1.3.
+
+> Nota: el rol `superadmin` se mantiene como un superset de `admin`. Si se decide consolidar, requiere migración de datos y revisión de guards — se deja para una iteración dedicada cuando haya volumen real de usuarios admin.
+
+---
+
+### FASE 4 — Diseño y percepción de marca  ✅ COMPLETADA (iteración inicial)
+
+- [x] **Home** — acentos correctos en categorías, hero, trust bar y banners. Precios en showcase con `toLocaleString('es-CO')`.
+- [x] **Dashboard** — banners contextuales y jerarquía visual mejorada (sub-entrega 2.3).
+- [x] **ProductCard** — badges acumulables, descuento visible, formato COP (sub-entrega 1.1).
+- [x] **Sistema visual `styles.css`** — bloques nuevos para badges, chips, filtros, dashboard banners, artisan hero, cart warnings, shipping cards, FAQ, success cards, commission tiers. Variables de paleta consolidadas en `:root`.
+
+> Nota: refinamientos visuales adicionales (segunda iteración del catálogo, micro-animaciones, skeletons) quedan para iterar tras tener telemetría real de uso.
+
+---
+
+### FASE 5 — SEO y crecimiento  ✅ COMPLETADA (iteración inicial)
+
+- [x] **Componente `Seo` extendido** — soporta `keywords` (array o string) y `breadcrumbs` con generación automática del JSON-LD `BreadcrumbList`.
+- [x] **Schema enriquecido**:
+  - `Product` JSON-LD con AggregateRating + Reviews (sub-entrega 1.2).
+  - `Person` JSON-LD para artesanos (con makesOffer + PostalAddress) (sub-entrega 2.1).
+  - `BreadcrumbList` automático en ProductDetail, ArtisanPublicPage, ProductList.
+- [x] **Metadata por página** — keywords contextuales en ProductDetail (categoría, artesano, "hecho a mano"), ArtisanPublicPage (oficio, región), ProductList (categoría).
+- [x] **Sitemap dinámico** — ya existía vía `backend/src/seo/seo.service.ts` (commit `ad31a43`).
+
+> Nota: contenido editorial del blog y landings dedicadas por categoría/región quedan como iniciativas de marketing/contenido, no de producto. Se trabajan cuando arranque la estrategia editorial.
+
+---
+
+### Próxima sub-entrega — Iteración guiada por telemetría
+
+Las 5 fases del plan inicial quedan completadas en su iteración base. Los siguientes pasos dependen de datos reales:
+
+1. **Activar GA4 + Pixel** y dejar correr 2 semanas para tener señales reales.
+2. **Telemetría del catálogo** — ver qué filtros/sort usan los compradores y cuáles ignoran.
+3. **Funnel de checkout** — medir abandono entre carrito y confirmación; revalidar revalidate() y bloque de envío.
+4. **Conversión del registro de artesano** — A/B del medidor de contraseña y de la pantalla de éxito.
+5. **Casos de éxito reales en `/vende`** — reemplazar los placeholders cuando haya 3 historias contables.
+6. **Roles `superadmin`/`admin`** — consolidar cuando haya volumen real de admins.

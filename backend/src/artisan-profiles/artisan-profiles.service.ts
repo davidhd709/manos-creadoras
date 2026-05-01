@@ -73,7 +73,11 @@ export class ArtisanProfilesService {
     if (!user || !user.isActive || user.verificationStatus !== 'approved') {
       throw new NotFoundException('Artesano no disponible');
     }
-    const products = await this.productsRepo.findByArtisan(user._id.toString());
-    return { profile, products };
+    const userId = user._id.toString();
+    const [products, stats] = await Promise.all([
+      this.productsRepo.findByArtisan(userId),
+      this.productsRepo.aggregateArtisanStats(userId),
+    ]);
+    return { profile, products, stats };
   }
 }

@@ -16,7 +16,7 @@ const ALLOWED = /^image\/(jpeg|jpg|png|webp|gif)$/;
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UploadController {
   @Post('images')
-  @Roles(Role.Artisan, Role.Admin, Role.SuperAdmin)
+  @Roles(Role.Artisan, Role.Admin)
   @UseInterceptors(
     FilesInterceptor('files', 5, {
       storage: diskStorage({

@@ -16,7 +16,7 @@ export class BannersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   @Post()
   create(@Body() dto: CreateBannerDto) {
     return this.bannersService.create(dto);

@@ -36,14 +36,14 @@ export class ProductsController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Artisan, Role.Admin)
+  @Roles(Role.Artisan, Role.Admin, Role.SuperAdmin)
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpdateProductDto, @CurrentUser() user: any) {
     return this.productsService.update(id, dto, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.Artisan, Role.Admin)
+  @Roles(Role.Artisan, Role.Admin, Role.SuperAdmin)
   @Delete(':id')
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.productsService.remove(id, user);

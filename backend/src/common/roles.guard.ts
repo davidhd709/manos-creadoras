@@ -14,7 +14,9 @@ export class RolesGuard implements CanActivate {
     ]);
     if (!requiredRoles) return true;
     const { user } = context.switchToHttp().getRequest();
-    // SuperAdmin tiene acceso a todo
-    return requiredRoles.includes(user?.role) || user?.role === Role.SuperAdmin;
+    // SuperAdmin NO tiene bypass automático: solo accede a endpoints donde
+    // está listado explícitamente en @Roles(...). Esto evita que el rol
+    // global pueda actuar como buyer o artesano y opere recursos privados.
+    return requiredRoles.includes(user?.role);
   }
 }

@@ -23,10 +23,35 @@ export class ProductsService {
     if (filter.isPromotion === 'true') q.isPromotion = true;
     if (filter.artisan) q.artisan = filter.artisan;
 
+    const minPrice = parseFloat(filter.minPrice);
+    const maxPrice = parseFloat(filter.maxPrice);
+    if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
+      q.price = {};
+      if (!Number.isNaN(minPrice)) q.price.$gte = minPrice;
+      if (!Number.isNaN(maxPrice)) q.price.$lte = maxPrice;
+    }
+
+    const minRating = parseFloat(filter.minRating);
+    if (!Number.isNaN(minRating) && minRating > 0) {
+      q.ratingAverage = { $gte: minRating };
+    }
+
+    if (filter.inStock === 'true') q.stock = { $gt: 0 };
+
+    const sortMap: Record<string, Record<string, 1 | -1>> = {
+      relevance: { soldCount: -1, ratingAverage: -1, createdAt: -1 },
+      price_asc: { price: 1 },
+      price_desc: { price: -1 },
+      newest: { createdAt: -1 },
+      bestsellers: { soldCount: -1 },
+      rating: { ratingAverage: -1, soldCount: -1 },
+    };
+    const sort = sortMap[filter.sort] || sortMap.relevance;
+
     const page = Math.max(1, parseInt(filter.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(filter.limit, 10) || 12));
 
-    const { data, total } = await this.productsRepository.findPaginated(q, page, limit);
+    const { data, total } = await this.productsRepository.findPaginated(q, page, limit, sort);
 
     return {
       data,
@@ -52,7 +77,8 @@ export class ProductsService {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
     const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
-    if (user.role !== Role.Admin && artisanId !== user.userId) {
+    const isPlatformAdmin = user.role === Role.Admin || user.role === Role.SuperAdmin;
+    if (!isPlatformAdmin && artisanId !== user.userId) {
       throw new ForbiddenException('No tienes permiso para editar este producto');
     }
 
@@ -68,7 +94,8 @@ export class ProductsService {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
     const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
-    if (user.role !== Role.Admin && artisanId !== user.userId) {
+    const isPlatformAdmin = user.role === Role.Admin || user.role === Role.SuperAdmin;
+    if (!isPlatformAdmin && artisanId !== user.userId) {
       throw new ForbiddenException('No tienes permiso para eliminar este producto');
     }
 

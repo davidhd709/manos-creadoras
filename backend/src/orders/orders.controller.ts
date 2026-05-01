@@ -32,19 +32,19 @@ export class OrdersController {
   }
 
   @Get('status/:status')
-  @Roles(Role.Admin, Role.Artisan)
+  @Roles(Role.Admin, Role.SuperAdmin, Role.Artisan)
   byStatus(@Param('status') status: string) {
     return this.ordersService.findByStatus(status);
   }
 
   @Get(':id')
-  @Roles(Role.Admin, Role.Artisan, Role.Buyer)
+  @Roles(Role.Admin, Role.SuperAdmin, Role.Artisan, Role.Buyer)
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.ordersService.findByIdWithAuth(id, user);
   }
 
   @Patch(':id/status')
-  @Roles(Role.Admin, Role.Artisan)
+  @Roles(Role.Admin, Role.SuperAdmin, Role.Artisan)
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateOrderStatusDto,
@@ -54,13 +54,13 @@ export class OrdersController {
   }
 
   @Patch(':id/confirm-payment')
-  @Roles(Role.Admin, Role.Artisan)
+  @Roles(Role.Admin, Role.SuperAdmin, Role.Artisan)
   confirmPayment(@Param('id') id: string) {
     return this.ordersService.confirmPayment(id);
   }
 
   @Get()
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   all() {
     return this.ordersService.all();
   }

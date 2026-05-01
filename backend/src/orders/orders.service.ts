@@ -27,6 +27,14 @@ export class OrdersService {
         'Debes completar tu perfil con dirección de envío antes de realizar un pedido',
       );
     }
+    if (!clientProfile.phone || clientProfile.phone.trim().length < 7) {
+      throw new BadRequestException(
+        'Debes registrar un teléfono válido para que el artesano pueda coordinar tu pedido',
+      );
+    }
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Tu carrito está vacío');
+    }
 
     const verifiedItems: { product: string; quantity: number; unitPrice: number; totalItem: number }[] = [];
     const productSnapshots: any[] = [];
@@ -197,7 +205,7 @@ export class OrdersService {
     const order = await this.ordersRepository.findById(id);
     if (!order) throw new NotFoundException('Orden no encontrada');
 
-    if (user.role === Role.Admin) return order;
+    if (user.role === Role.Admin || user.role === Role.SuperAdmin) return order;
 
     const buyerId = (order.buyer as any)?._id?.toString() ?? order.buyer.toString();
     if (user.role === Role.Buyer && buyerId !== user.userId) {

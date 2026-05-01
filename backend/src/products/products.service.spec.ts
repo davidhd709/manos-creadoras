@@ -65,6 +65,7 @@ describe('ProductsService', () => {
       expect(productsRepo.findPaginated).toHaveBeenCalledWith(
         expect.objectContaining({ title: { $regex: 'test\\.\\*\\+\\?', $options: 'i' } }),
         1, 12,
+        expect.any(Object),
       );
     });
   });

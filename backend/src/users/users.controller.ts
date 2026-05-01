@@ -18,13 +18,13 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   getAll() {
     return this.usersService.findAll();
   }
 
   @Get('role/:role')
-  @Roles(Role.Admin)
+  @Roles(Role.Admin, Role.SuperAdmin)
   getByRole(@Param('role') role: string) {
     return this.usersService.findByRole(role);
   }

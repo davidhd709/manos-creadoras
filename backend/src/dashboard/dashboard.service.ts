@@ -95,7 +95,22 @@ export class DashboardService {
       isPromotion: p.isPromotion,
       promotionPrice: p.promotionPrice,
       category: p.category,
+      ratingAverage: p.ratingAverage || 0,
     }));
+
+    const actionableStatuses = ['awaiting_payment', 'pendiente', 'en_proceso'];
+    const ordersToAct = artisanOrders.filter((o: any) => actionableStatuses.includes(o.status));
+    const awaitingPayment = artisanOrders.filter((o: any) => o.status === 'awaiting_payment').length;
+    const inProgress = artisanOrders.filter((o: any) => o.status === 'en_proceso').length;
+    const readyToShip = artisanOrders.filter((o: any) => o.status === 'pendiente').length;
+    const productsWithoutReviews = products.filter((p) => !p.ratingAverage || p.ratingAverage === 0).length;
+    const outOfStockMine = products.filter((p) => p.stock === 0).length;
+
+    // Crecimiento vs mes anterior
+    const sortedSales = [...(monthlySales || [])];
+    const lastMonth = sortedSales[0]?.total || 0;
+    const prevMonth = sortedSales[1]?.total || 0;
+    const monthGrowthPct = prevMonth > 0 ? Math.round(((lastMonth - prevMonth) / prevMonth) * 100) : null;
 
     return {
       stats: {
@@ -104,9 +119,18 @@ export class DashboardService {
         totalRevenue: artisanRevenue,
         lowStockAlerts: myLowStock.length,
         totalOrders: artisanOrders.length,
+        ordersToAct: ordersToAct.length,
+        awaitingPayment,
+        inProgress,
+        readyToShip,
+        productsWithoutReviews,
+        outOfStockMine,
+        monthGrowthPct,
+        thisMonthRevenue: lastMonth,
       },
       topProducts: products.sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)).slice(0, 5),
       recentOrders: artisanOrders.slice(0, 10),
+      ordersToAct: ordersToAct.slice(0, 5),
       monthlySales,
       revenueByProduct,
       inventorySummary,

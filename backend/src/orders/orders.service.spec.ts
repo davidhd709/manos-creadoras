@@ -78,22 +78,27 @@ describe('OrdersService', () => {
       await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
     });
 
-    it('should throw if product not found', async () => {
+    it('should throw if buyer has no phone', async () => {
       clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw if product not found', async () => {
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima', phone: '3001234567' });
       productsRepo.findById.mockResolvedValue(null);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
     });
 
     it('should throw if stock insufficient', async () => {
-      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima', phone: '3001234567' });
       productsRepo.findById.mockResolvedValue({ title: 'Test', stock: 1, price: 100 });
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(BadRequestException);
     });
 
     it('should create order with verified prices from DB', async () => {
-      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima' });
+      clientsRepo.findByUserId.mockResolvedValue({ address: '123 St', city: 'Lima', phone: '3001234567' });
       productsRepo.findById.mockResolvedValue({ title: 'Test', stock: 10, price: 150 });
       productsRepo.atomicDecrementStock.mockResolvedValue({ stock: 8 });
 
