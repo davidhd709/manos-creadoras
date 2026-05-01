@@ -27,7 +27,7 @@ export default function BlogListPage() {
     <main className="page" role="main">
       <Seo
         title="Blog — historias del taller artesanal colombiano"
-        description="Lee sobre las tecnicas, regiones y artesanos detras de cada pieza: mochilas wayuu, ceramica de Raquira, filigrana de Mompox y mas."
+        description="Lee sobre las técnicas, regiones y artesanos detrás de cada pieza: mochilas wayuu, cerámica de Ráquira, filigrana de Mompox y más."
         jsonLd={buildBlogJsonLd()}
       />
 

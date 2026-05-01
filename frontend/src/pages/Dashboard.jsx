@@ -12,10 +12,21 @@ import OnboardingChecklist from '../components/OnboardingChecklist';
 
 const ROLE_TITLES = {
   superadmin: 'Panel Super Administrador',
-  admin: 'Panel de Administracion',
+  admin: 'Panel de Administración',
   artisan: 'Panel de Artesano',
   buyer: 'Mi Panel',
 };
+
+function formatCOP(value) {
+  return `$${Number(value || 0).toLocaleString('es-CO')}`;
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -43,10 +54,10 @@ export default function Dashboard() {
 
   useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
 
-  if (!user) return <div className="page" role="alert"><div className="empty-state"><h3>Inicia sesion para ver tu dashboard</h3><Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>Iniciar sesion</Link></div></div>;
+  if (!user) return <div className="page" role="alert"><div className="empty-state"><h3>Inicia sesión para ver tu dashboard</h3><Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>Iniciar sesión</Link></div></div>;
   if (loading) return <Spinner />;
   if (error) return <div className="page"><ErrorState title="Error al cargar el dashboard" message="No pudimos obtener tus datos. Intenta de nuevo." onRetry={fetchDashboard} /></div>;
-  if (!data) return <div className="page"><ErrorState title="Sin datos" message="No hay informacion disponible por el momento." backTo="/" /></div>;
+  if (!data) return <div className="page"><ErrorState title="Sin datos" message="No hay información disponible por el momento." backTo="/" /></div>;
 
   const orderColumns = [
     { key: 'id', label: 'ID', render: (row) => <span style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>#{(row._id || '').slice(-6)}</span> },
@@ -57,16 +68,61 @@ export default function Dashboard() {
 
   const monthlySales = (data.monthlySales || []).slice().reverse();
 
+  const isArtisan = user.role === 'artisan';
+  const stats = data.stats || {};
+  const ordersToActCount = stats.ordersToAct || 0;
+
   return (
     <main className="page" role="main">
-      <div className="section-header" style={{ marginBottom: '2rem' }}>
+      <div className="section-header" style={{ marginBottom: '1.5rem' }}>
         <div>
-          <h1 className="section-title">{ROLE_TITLES[user.role] || 'Dashboard'}</h1>
-          <p className="section-subtitle">Bienvenido, {user.name || 'usuario'}</p>
+          <h1 className="section-title">
+            {greeting()}, {user.name?.split(' ')[0] || 'artesano'}
+          </h1>
+          <p className="section-subtitle">{ROLE_TITLES[user.role] || 'Dashboard'}</p>
         </div>
+        {isArtisan && (
+          <Link to="/dashboard/productos" className="btn accent" style={{ padding: '0.7rem 1.25rem' }}>
+            + Nuevo producto
+          </Link>
+        )}
       </div>
 
-      {user.role === 'artisan' && <OnboardingChecklist />}
+      {isArtisan && ordersToActCount > 0 && (
+        <div className="dashboard-banner dashboard-banner-urgent">
+          <div className="dashboard-banner-icon">📬</div>
+          <div style={{ flex: 1 }}>
+            <strong>Tienes {ordersToActCount} {ordersToActCount === 1 ? 'pedido por atender' : 'pedidos por atender'}</strong>
+            <span>
+              {stats.awaitingPayment > 0 && `${stats.awaitingPayment} esperando pago · `}
+              {stats.readyToShip > 0 && `${stats.readyToShip} listos para procesar · `}
+              {stats.inProgress > 0 && `${stats.inProgress} en proceso`}
+            </span>
+          </div>
+          <Link to="/dashboard/pedidos" className="btn accent" style={{ padding: '0.6rem 1rem' }}>
+            Ver pedidos
+          </Link>
+        </div>
+      )}
+
+      {isArtisan && stats.monthGrowthPct != null && stats.thisMonthRevenue > 0 && (
+        <div className="dashboard-banner dashboard-banner-info">
+          <div className="dashboard-banner-icon">{stats.monthGrowthPct >= 0 ? '📈' : '📉'}</div>
+          <div style={{ flex: 1 }}>
+            <strong>
+              Este mes: {formatCOP(stats.thisMonthRevenue)}
+              {stats.monthGrowthPct !== 0 && (
+                <span style={{ marginLeft: '0.5rem', color: stats.monthGrowthPct >= 0 ? 'var(--success)' : 'var(--error)' }}>
+                  {stats.monthGrowthPct > 0 ? '+' : ''}{stats.monthGrowthPct}% vs mes anterior
+                </span>
+              )}
+            </strong>
+            <span>Sigue compartiendo tu vitrina para mantener el ritmo.</span>
+          </div>
+        </div>
+      )}
+
+      {isArtisan && <OnboardingChecklist />}
 
       {/* Stats */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
@@ -78,12 +134,12 @@ export default function Dashboard() {
             <StatsCard title="Usuarios" value={data.stats?.totalUsers || 0} subtitle={`${data.stats?.totalArtisans || 0} artesanos, ${data.stats?.totalBuyers || 0} compradores`} />
           </>
         )}
-        {user.role === 'artisan' && (
+        {isArtisan && (
           <>
-            <StatsCard title="Ingresos" value={`$${data.stats?.totalRevenue?.toLocaleString() || 0}`} subtitle="Total ventas" />
-            <StatsCard title="Productos" value={data.stats?.totalProducts || 0} subtitle="En tu vitrina" />
-            <StatsCard title="Unidades vendidas" value={data.stats?.totalSold || 0} subtitle="Total historico" />
-            <StatsCard title="Alertas inventario" value={data.stats?.lowStockAlerts || 0} subtitle="Productos bajo stock" />
+            <StatsCard title="Por atender" value={stats.ordersToAct || 0} subtitle="Pedidos en flujo" />
+            <StatsCard title="Ingresos totales" value={formatCOP(stats.totalRevenue)} subtitle={`${stats.totalSold || 0} unidades vendidas`} />
+            <StatsCard title="Productos" value={stats.totalProducts || 0} subtitle={stats.outOfStockMine ? `${stats.outOfStockMine} agotados` : 'En tu vitrina'} />
+            <StatsCard title="Sin reseñas" value={stats.productsWithoutReviews || 0} subtitle="Pide opinión a tus compradores" />
           </>
         )}
         {user.role === 'buyer' && (
@@ -97,14 +153,23 @@ export default function Dashboard() {
       {/* Quick Actions - Buyer */}
       {user.role === 'buyer' && (
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
-          <Link to="/productos" className="btn accent">Explorar catalogo</Link>
+          <Link to="/productos" className="btn accent">Explorar catálogo</Link>
           <Link to="/dashboard/pedidos" className="btn secondary">Mis pedidos</Link>
-          <Link to="/dashboard/mi-perfil" className="btn secondary">Mi perfil / Direccion de envio</Link>
+          <Link to="/dashboard/mi-perfil" className="btn secondary">Mi perfil / Dirección de envío</Link>
         </div>
       )}
 
-      {/* Quick Actions */}
-      {(user.role === 'superadmin' || user.role === 'admin') && (
+      {/* Quick Actions - SuperAdmin (solo accesos globales/plataforma) */}
+      {user.role === 'superadmin' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+          <Link to="/dashboard/artesanos" className="btn accent">Gestionar artesanos</Link>
+          <Link to="/dashboard/pedidos" className="btn secondary">Pedidos globales</Link>
+          <Link to="/dashboard/productos" className="btn secondary">Productos (moderación)</Link>
+        </div>
+      )}
+
+      {/* Quick Actions - Admin (operación diaria de plataforma) */}
+      {user.role === 'admin' && (
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
           <Link to="/dashboard/productos" className="btn accent">Gestionar productos</Link>
           <Link to="/dashboard/pedidos" className="btn secondary">Ver pedidos</Link>
@@ -168,7 +233,7 @@ export default function Dashboard() {
                   </span>
                 )},
                 { key: 'soldCount', label: 'Vendidos', render: (r) => r.soldCount || 0 },
-                { key: 'promo', label: 'Promocion', render: (r) => r.isPromotion
+                { key: 'promo', label: 'Promoción', render: (r) => r.isPromotion
                   ? <span style={{ color: 'var(--error)', fontWeight: 600 }}>${r.promotionPrice}</span>
                   : <span className="muted">-</span>
                 },
@@ -183,7 +248,7 @@ export default function Dashboard() {
       {/* Top Products */}
       {data.topProducts?.length > 0 && (
         <section className="section">
-          <h2 className="section-title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Productos mas vendidos</h2>
+          <h2 className="section-title" style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Productos más vendidos</h2>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <Table
               columns={[
@@ -195,7 +260,7 @@ export default function Dashboard() {
                 )},
               ]}
               data={data.topProducts}
-              emptyMessage="Sin productos aun"
+              emptyMessage="Sin productos aún"
             />
           </div>
         </section>
@@ -211,7 +276,7 @@ export default function Dashboard() {
           <Table
             columns={orderColumns}
             data={data.recentOrders || []}
-            emptyMessage="Sin pedidos aun"
+            emptyMessage="Sin pedidos aún"
           />
         </div>
       </section>

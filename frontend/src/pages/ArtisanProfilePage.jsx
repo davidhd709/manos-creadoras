@@ -8,14 +8,14 @@ import Seo from '../lib/Seo';
 import { compressImage } from '../lib/compressImage';
 
 const REGIONS = [
-  'Antioquia', 'Atlantico', 'Bogota D.C.', 'Bolivar', 'Boyaca', 'Caldas', 'Caqueta', 'Cauca',
-  'Cesar', 'Choco', 'Cordoba', 'Cundinamarca', 'Huila', 'La Guajira', 'Magdalena', 'Meta',
-  'Nariño', 'Norte de Santander', 'Putumayo', 'Quindio', 'Risaralda', 'Santander', 'Sucre',
+  'Antioquia', 'Atlántico', 'Bogotá D.C.', 'Bolívar', 'Boyacá', 'Caldas', 'Caquetá', 'Cauca',
+  'Cesar', 'Chocó', 'Córdoba', 'Cundinamarca', 'Huila', 'La Guajira', 'Magdalena', 'Meta',
+  'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío', 'Risaralda', 'Santander', 'Sucre',
   'Tolima', 'Valle del Cauca', 'Otra',
 ];
 
 const CRAFTS = [
-  'Ceramica', 'Tejido (mochilas, telar)', 'Joyeria y filigrana', 'Madera y tallado',
+  'Cerámica', 'Tejido (mochilas, telar)', 'Joyería y filigrana', 'Madera y tallado',
   'Cuero', 'Vidrio', 'Iraca y palma', 'Mopa-mopa', 'Pintura y arte', 'Otra',
 ];
 
@@ -107,7 +107,7 @@ export default function ArtisanProfilePage() {
 
   const next = async () => {
     if (step === 1 && !form.businessName) {
-      return toast.error('Cuentanos el nombre de tu negocio');
+      return toast.error('Cuéntanos el nombre de tu negocio');
     }
     if (step === 2 && (!form.craft || !form.region)) {
       return toast.error('Elige tu oficio y region');
@@ -129,7 +129,7 @@ export default function ArtisanProfilePage() {
       <div className="section-header">
         <div>
           <h1 className="section-title">Configura tu vitrina</h1>
-          <p className="section-subtitle">Tres pasos rapidos. Tus compradores veran esta informacion en tu perfil publico.</p>
+          <p className="section-subtitle">Tres pasos rápidos. Tus compradores verán esta información en tu perfil público.</p>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export default function ArtisanProfilePage() {
           <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Tu negocio</h2>
           <label>
             Nombre del negocio o taller *
-            <input value={form.businessName} onChange={update('businessName')} required placeholder="Ej: Tejidos Sandona" />
+            <input value={form.businessName} onChange={update('businessName')} required placeholder="Ej: Tejidos Sandoná" />
           </label>
           <label>
             Frase corta (opcional)
@@ -195,7 +195,7 @@ export default function ArtisanProfilePage() {
               </label>
             </div>
             <p className="muted" style={{ fontSize: '0.78rem', marginTop: '0.4rem' }}>
-              Tip: una foto del taller o del proceso da mas confianza que un producto solo.
+              Tip: una foto del taller o del proceso da más confianza que un producto solo.
             </p>
           </div>
         </section>
@@ -214,7 +214,7 @@ export default function ArtisanProfilePage() {
               </select>
             </label>
             <label>
-              Region / departamento *
+              Región / departamento *
               <select value={form.region} onChange={update('region')} required>
                 <option value="">Selecciona...</option>
                 {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -227,10 +227,10 @@ export default function ArtisanProfilePage() {
               value={form.story}
               onChange={update('story')}
               rows={6}
-              placeholder="¿Como aprendiste? ¿Que te diferencia? ¿De donde vienen tus piezas? Cuenta lo que enamora a tus compradores."
+              placeholder="¿Cómo aprendiste? ¿Qué te diferencia? ¿De dónde vienen tus piezas? Cuenta lo que enamora a tus compradores."
             />
             <span className="muted" style={{ fontSize: '0.78rem', display: 'block', marginTop: '0.25rem' }}>
-              Las historias humanas convierten 3x mas. Habla en primera persona.
+              Las historias humanas convierten 3 veces más. Habla en primera persona.
             </span>
           </label>
         </section>
@@ -242,7 +242,7 @@ export default function ArtisanProfilePage() {
           <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Contacto y datos de pago</h2>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
             <label>
-              Telefono / WhatsApp
+              Teléfono / WhatsApp
               <input value={form.phone} onChange={update('phone')} placeholder="3001234567" inputMode="tel" />
             </label>
             <label>
@@ -265,7 +265,7 @@ export default function ArtisanProfilePage() {
               <input value={form.bankName} onChange={update('bankName')} placeholder="Bancolombia, Nequi, Daviplata..." />
             </label>
             <label>
-              Numero de cuenta o telefono
+              Número de cuenta o teléfono
               <input value={form.bankAccount} onChange={update('bankAccount')} />
             </label>
           </div>
@@ -280,7 +280,7 @@ export default function ArtisanProfilePage() {
               <input value={form.socialMedia.facebook} onChange={updateSocial('facebook')} />
             </label>
             <label>
-              WhatsApp publico
+              WhatsApp público
               <input value={form.socialMedia.whatsapp} onChange={updateSocial('whatsapp')} placeholder="3001234567" inputMode="tel" />
             </label>
           </div>

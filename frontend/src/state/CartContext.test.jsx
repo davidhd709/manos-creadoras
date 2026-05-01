@@ -111,6 +111,22 @@ describe('CartContext', () => {
     act(() => result.current.add(mockProduct));
 
     const stored = JSON.parse(localStorage.getItem('manos_cart'));
-    expect(stored).toHaveLength(1);
+    expect(stored.items).toHaveLength(1);
+    expect(stored.version).toBe(2);
+  });
+
+  it('should rehydrate legacy array format', () => {
+    localStorage.setItem('manos_cart', JSON.stringify([{ product: mockProduct, quantity: 2 }]));
+    const { result } = renderHook(() => useCart(), { wrapper });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].quantity).toBe(2);
+  });
+
+  it('should compute savings when item is on promotion', () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    act(() => result.current.add({ ...mockProduct, isPromotion: true, promotionPrice: 80 }, 2));
+    expect(result.current.savings).toBe(40);
+    expect(result.current.subtotal).toBe(160);
+    expect(result.current.count).toBe(2);
   });
 });

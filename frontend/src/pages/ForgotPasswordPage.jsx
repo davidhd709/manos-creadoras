@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
         <div className="auth-visual-content">
           <h2 className="auth-headline">Recupera tu acceso</h2>
           <p className="auth-subtext">
-            Te enviaremos un enlace seguro a tu correo para restablecer tu contrasena.
+            Te enviaremos un enlace seguro a tu correo para restablecer tu contraseña.
           </p>
         </div>
       </div>
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
             <MailIcon />
           </div>
 
-          <h1>Olvidaste tu contrasena?</h1>
+          <h1>¿Olvidaste tu contraseña?</h1>
           <p className="subtitle">
             Ingresa tu correo y te enviaremos un enlace para restablecerla.
           </p>
@@ -57,18 +57,18 @@ export default function ForgotPasswordPage() {
             <div className="card" style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--success-light)', border: '1px solid var(--success)', borderRadius: '12px' }} role="status">
               <h3 style={{ color: 'var(--success)', marginTop: 0 }}>Revisa tu correo</h3>
               <p style={{ color: 'var(--text)' }}>
-                Si el correo existe, recibiras un enlace para restablecer tu contrasena.
+                Si el correo existe, recibirás un enlace para restablecer tu contraseña.
                 El enlace expira en 1 hora.
               </p>
               <Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>
-                Volver al inicio de sesion
+                Volver al inicio de sesión
               </Link>
             </div>
           ) : (
             <>
               <form className="auth-form" onSubmit={submit} noValidate>
                 <label htmlFor="email">
-                  Correo electronico
+                  Correo electrónico
                   <input
                     id="email"
                     type="email"
@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
               <div className="auth-divider"><span>o</span></div>
 
               <div className="auth-toggle">
-                <Link to="/login">Volver a iniciar sesion</Link>
+                <Link to="/login">Volver a iniciar sesión</Link>
               </div>
             </>
           )}

@@ -30,23 +30,60 @@ const EyeIcon = ({ open }) => (
   </svg>
 );
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validate(form) {
+  const errors = {};
+  if (!form.email.trim()) errors.email = 'Ingresa tu correo electrónico';
+  else if (!EMAIL_RE.test(form.email.trim())) errors.email = 'El correo no tiene un formato válido';
+  if (!form.password) errors.password = 'Ingresa tu contraseña';
+  return errors;
+}
+
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
+  const updateField = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    if (errors[key]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
+
+  const handleBlur = (key) => {
+    setTouched((t) => ({ ...t, [key]: true }));
+    setErrors(validate(form));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    const validationErrors = validate(form);
+    setTouched({ email: true, password: true });
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      const firstKey = Object.keys(validationErrors)[0];
+      document.getElementById(firstKey)?.focus();
+      return;
+    }
+    setErrors({});
     setSubmitting(true);
     try {
-      await login(form.email, form.password);
+      await login(form.email.trim(), form.password);
       toast.success('Bienvenido de vuelta');
       navigate('/');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error de autenticacion';
+      const msg = err.response?.data?.message || 'Error de autenticación';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmitting(false);
@@ -55,7 +92,7 @@ export default function LoginPage() {
 
   return (
     <main className="auth-page" role="main">
-      <Seo title="Iniciar sesion" description="Ingresa a tu cuenta de Manos Creadoras." noindex />
+      <Seo title="Iniciar sesión" description="Ingresa a tu cuenta de Manos Creadoras." noindex />
       <div className="auth-visual">
         <div className="auth-visual-img" aria-hidden="true" />
         <div className="auth-visual-overlay" aria-hidden="true" />
@@ -73,44 +110,55 @@ export default function LoginPage() {
         <div className="auth-form-inner">
           <div className="auth-mode-indicator" aria-hidden="true"><LockIcon /></div>
 
-          <h1 id="auth-title">Iniciar sesion</h1>
+          <h1 id="auth-title">Iniciar sesión</h1>
           <p className="subtitle">Ingresa tus credenciales para continuar.</p>
 
           <form className="auth-form" onSubmit={submit} noValidate aria-labelledby="auth-title">
             <label htmlFor="email">
-              Correo electronico
+              Correo electrónico
               <input
                 id="email"
                 placeholder="tu@email.com"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
+                onChange={(e) => updateField('email', e.target.value)}
+                onBlur={() => handleBlur('email')}
                 autoComplete="email"
+                aria-invalid={!!errors.email}
+                aria-describedby={errors.email ? 'email-error' : undefined}
+                style={errors.email && touched.email ? { borderColor: 'var(--error)' } : undefined}
               />
+              {errors.email && touched.email && (
+                <span id="email-error" role="alert" className="form-error">{errors.email}</span>
+              )}
             </label>
             <label htmlFor="password">
               <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Contrasena</span>
+                <span>Contraseña</span>
                 <Link to="/recuperar-contrasena" style={{ fontSize: '0.78rem', color: 'var(--accent-dark)', fontWeight: 500 }}>
-                  Olvidaste tu contrasena?
+                  ¿Olvidaste tu contraseña?
                 </Link>
               </span>
               <div style={{ position: 'relative' }}>
                 <input
                   id="password"
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
                   type={showPassword ? 'text' : 'password'}
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  required
+                  onChange={(e) => updateField('password', e.target.value)}
+                  onBlur={() => handleBlur('password')}
                   autoComplete="current-password"
-                  style={{ paddingRight: '2.5rem' }}
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  style={{
+                    paddingRight: '2.5rem',
+                    ...(errors.password && touched.password ? { borderColor: 'var(--error)' } : {}),
+                  }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   aria-pressed={showPassword}
                   style={{
                     position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
@@ -121,9 +169,12 @@ export default function LoginPage() {
                   <EyeIcon open={showPassword} />
                 </button>
               </div>
+              {errors.password && touched.password && (
+                <span id="password-error" role="alert" className="form-error">{errors.password}</span>
+              )}
             </label>
             <button className="btn accent" style={{ width: '100%', padding: '0.85rem', marginTop: '0.25rem' }} disabled={submitting}>
-              {submitting ? 'Procesando...' : 'Iniciar sesion'}
+              {submitting ? 'Procesando...' : 'Iniciar sesión'}
             </button>
           </form>
 
@@ -132,6 +183,8 @@ export default function LoginPage() {
           <div className="auth-toggle">
             ¿No tienes cuenta? <Link to="/registro" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>Crea una gratis</Link>
           </div>
+
+          <noscript>JavaScript es necesario para iniciar sesión.</noscript>
 
           <p className="auth-footer-text">
             ¿Eres artesano? <Link to="/vende" style={{ color: 'var(--accent-dark)', fontWeight: 600 }}>Vende en Manos Creadoras</Link>

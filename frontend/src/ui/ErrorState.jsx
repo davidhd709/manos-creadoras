@@ -6,7 +6,7 @@ const AlertIcon = () => (
   </svg>
 );
 
-export default function ErrorState({ title = 'Algo salio mal', message = 'No pudimos cargar la informacion', onRetry, backTo, backLabel = 'Volver al inicio' }) {
+export default function ErrorState({ title = 'Algo salió mal', message = 'No pudimos cargar la información', onRetry, backTo, backLabel = 'Volver al inicio' }) {
   return (
     <div className="empty-state" role="alert">
       <AlertIcon />

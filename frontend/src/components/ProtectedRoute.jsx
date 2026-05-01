@@ -20,6 +20,9 @@ export const RoleRoute = ({ children, roles }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Cada ruta declara explícitamente los roles permitidos. Sin bypass para
+  // ningún rol — incluido superadmin — para reflejar la separación de
+  // responsabilidades del backend (RolesGuard).
   if (roles && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }

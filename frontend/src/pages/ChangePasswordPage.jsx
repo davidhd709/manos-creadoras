@@ -14,11 +14,11 @@ export default function ChangePasswordPage() {
   const submit = async (e) => {
     e.preventDefault();
     if (form.newPassword !== form.confirmPassword) {
-      toast.error('Las contrasenas no coinciden');
+      toast.error('Las contraseñas no coinciden');
       return;
     }
     if (form.newPassword.length < 8) {
-      toast.error('La nueva contrasena debe tener al menos 8 caracteres');
+      toast.error('La nueva contraseña debe tener al menos 8 caracteres');
       return;
     }
     setSubmitting(true);
@@ -31,7 +31,7 @@ export default function ChangePasswordPage() {
       passwordChanged();
       navigate('/dashboard');
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error al cambiar la contrasena';
+      const msg = err.response?.data?.message || 'Error al cambiar la contraseña';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmitting(false);
@@ -45,8 +45,8 @@ export default function ChangePasswordPage() {
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
-          <h1 style={{ marginTop: '1rem', fontSize: '1.5rem' }}>Cambiar contrasena</h1>
-          <p className="muted">Por seguridad, debes cambiar tu contrasena provisional antes de continuar</p>
+          <h1 style={{ marginTop: '1rem', fontSize: '1.5rem' }}>Cambiar contraseña</h1>
+          <p className="muted">Por seguridad, debes cambiar tu contraseña provisional antes de continuar</p>
         </div>
 
         <form onSubmit={submit} style={{ display: 'grid', gap: '1.25rem' }}>
@@ -58,11 +58,11 @@ export default function ChangePasswordPage() {
               onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
               required
               style={{ width: '100%', marginTop: '0.4rem' }}
-              placeholder="Tu contrasena provisional"
+              placeholder="Tu contraseña provisional"
             />
           </label>
           <label>
-            Nueva contrasena
+            Nueva contraseña
             <input
               type="password"
               value={form.newPassword}
@@ -70,11 +70,11 @@ export default function ChangePasswordPage() {
               required
               minLength={8}
               style={{ width: '100%', marginTop: '0.4rem' }}
-              placeholder="Minimo 8 caracteres"
+              placeholder="Mínimo 8 caracteres"
             />
           </label>
           <label>
-            Confirmar nueva contrasena
+            Confirmar nueva contraseña
             <input
               type="password"
               value={form.confirmPassword}
@@ -82,11 +82,11 @@ export default function ChangePasswordPage() {
               required
               minLength={8}
               style={{ width: '100%', marginTop: '0.4rem' }}
-              placeholder="Repite la nueva contrasena"
+              placeholder="Repite la nueva contraseña"
             />
           </label>
           <button className="btn accent" style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem' }} disabled={submitting}>
-            {submitting ? 'Actualizando...' : 'Cambiar contrasena'}
+            {submitting ? 'Actualizando...' : 'Cambiar contraseña'}
           </button>
         </form>
       </div>

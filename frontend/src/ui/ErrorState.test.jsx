@@ -5,8 +5,8 @@ import ErrorState from './ErrorState';
 describe('ErrorState', () => {
   it('should render default title and message', () => {
     render(<MemoryRouter><ErrorState /></MemoryRouter>);
-    expect(screen.getByText('Algo salio mal')).toBeInTheDocument();
-    expect(screen.getByText('No pudimos cargar la informacion')).toBeInTheDocument();
+    expect(screen.getByText('Algo salió mal')).toBeInTheDocument();
+    expect(screen.getByText('No pudimos cargar la información')).toBeInTheDocument();
   });
 
   it('should render custom title and message', () => {

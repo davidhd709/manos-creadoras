@@ -82,18 +82,18 @@ const Header = () => {
 
   return (
     <header>
-      <nav className="nav-bar" aria-label="Navegacion principal">
+      <nav className="nav-bar" aria-label="Navegación principal">
         <Link to="/" className="brand">
           <img src="/logo.png" alt="Manos Creadoras" onError={(e) => (e.currentTarget.style.display = 'none')} />
           <span>Manos<span className="brand-accent">Creadoras</span></span>
         </Link>
 
         <div className="search-bar" role="search">
-          <label htmlFor="search-input" className="sr-only">Buscar artesanias</label>
+          <label htmlFor="search-input" className="sr-only">Buscar artesanías</label>
           <SearchIcon />
           <input
             id="search-input"
-            placeholder="Buscar artesanias, ceramica, tejidos..."
+            placeholder="Buscar artesanías, cerámica, tejidos..."
             onKeyDown={(e) => {
               if (e.key === 'Enter') navigate(`/productos?search=${e.target.value}`);
             }}
@@ -102,7 +102,7 @@ const Header = () => {
 
         <div className="pill-nav">
           <Link to="/" className={isActive('/')}>Inicio</Link>
-          <Link to="/productos" className={isActive('/productos')}>Catalogo</Link>
+          <Link to="/productos" className={isActive('/productos')}>Catálogo</Link>
           <Link to="/artesanos" className={isActive('/artesanos')}>Artesanos</Link>
           <Link to="/vende" className={isActive('/vende')}>Vende</Link>
           <Link to="/carrito" className={`cart-badge ${isActive('/carrito')}`} aria-label="Ver carrito de compras">
@@ -137,19 +137,19 @@ const Footer = () => (
           Manos<span className="brand-accent">Creadoras</span>
         </div>
         <p className="footer-desc">
-          Marketplace de artesanias hechas en Colombia. Compra directo del taller del artesano.
+          Marketplace de artesanías hechas en Colombia. Compra directo del taller del artesano.
         </p>
       </div>
       <div className="footer-col">
         <h4>Explorar</h4>
-        <Link to="/productos">Catalogo</Link>
+        <Link to="/productos">Catálogo</Link>
         <Link to="/artesanos">Artesanos</Link>
-        <Link to="/productos?category=ceramica">Ceramica</Link>
+        <Link to="/productos?category=ceramica">Cerámica</Link>
         <Link to="/productos?category=tejidos">Tejidos</Link>
       </div>
       <div className="footer-col">
         <h4>Cuenta</h4>
-        <Link to="/login">Iniciar sesion</Link>
+        <Link to="/login">Iniciar sesión</Link>
         <Link to="/registro">Crear cuenta</Link>
         <Link to="/vende">Vender en MC</Link>
         <Link to="/carrito">Mi carrito</Link>
@@ -158,14 +158,14 @@ const Footer = () => (
         <h4>Soporte</h4>
         <Link to="/faq">Preguntas frecuentes</Link>
         <Link to="/blog">Blog</Link>
-        <Link to="/legal/envios">Envios</Link>
+        <Link to="/legal/envios">Envíos</Link>
         <Link to="/legal/devoluciones">Devoluciones</Link>
         <Link to="/contacto">Contacto</Link>
       </div>
       <div className="footer-col">
         <h4>Legal</h4>
-        <Link to="/legal/terminos">Terminos y condiciones</Link>
-        <Link to="/legal/privacidad">Politica de privacidad</Link>
+        <Link to="/legal/terminos">Términos y condiciones</Link>
+        <Link to="/legal/privacidad">Política de privacidad</Link>
       </div>
     </div>
     <div className="footer-bottom">
@@ -213,21 +213,25 @@ export default function App() {
               <Route path="/restablecer-contrasena" element={<ResetPasswordPage />} />
               <Route path="/cambiar-contrasena" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
 
-              {/* Rutas protegidas - requieren autenticacion */}
+              {/* Rutas protegidas - requieren autenticación */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/dashboard/pedidos" element={<ProtectedRoute><OrderManagement /></ProtectedRoute>} />
 
-              {/* Rutas de artesano */}
-              <Route path="/dashboard/productos" element={<RoleRoute roles={['artisan', 'admin']}><ProductManagement /></RoleRoute>} />
+              {/* Pedidos: artesano ve los suyos, admin/superadmin ven todos, buyer ve los propios */}
+              <Route path="/dashboard/pedidos" element={<RoleRoute roles={['artisan', 'admin', 'superadmin', 'buyer']}><OrderManagement /></RoleRoute>} />
+
+              {/* Productos: artesano gestiona los suyos, admin/superadmin moderan globalmente */}
+              <Route path="/dashboard/productos" element={<RoleRoute roles={['artisan', 'admin', 'superadmin']}><ProductManagement /></RoleRoute>} />
+
+              {/* Privado del artesano (NO superadmin) */}
               <Route path="/dashboard/inventario" element={<RoleRoute roles={['artisan', 'admin']}><InventoryPage /></RoleRoute>} />
               <Route path="/dashboard/perfil-negocio" element={<RoleRoute roles={['artisan']}><ArtisanProfilePage /></RoleRoute>} />
               <Route path="/dashboard/finanzas" element={<RoleRoute roles={['artisan', 'admin']}><FinancialPage /></RoleRoute>} />
               <Route path="/dashboard/promociones" element={<RoleRoute roles={['artisan', 'admin']}><PromotionsPage /></RoleRoute>} />
 
-              {/* Rutas de admin */}
+              {/* Rutas de admin/plataforma (admin + superadmin) */}
               <Route path="/dashboard/artesanos" element={<RoleRoute roles={['admin', 'superadmin']}><ArtisanManagement /></RoleRoute>} />
 
-              {/* Rutas de comprador */}
+              {/* Privado del comprador (NO superadmin) */}
               <Route path="/dashboard/mi-perfil" element={<RoleRoute roles={['buyer']}><BuyerProfilePage /></RoleRoute>} />
 
               {/* 404 */}

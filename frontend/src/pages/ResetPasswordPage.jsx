@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
   const submit = async (e) => {
     e.preventDefault();
     if (form.newPassword !== form.confirm) {
-      toast.error('Las contrasenas no coinciden');
+      toast.error('Las contraseñas no coinciden');
       return;
     }
     setSubmitting(true);
@@ -55,9 +55,9 @@ export default function ResetPasswordPage() {
     return (
       <main className="page" role="main">
         <div className="empty-state" role="alert">
-          <h3>Token invalido</h3>
-          <p className="muted">El enlace de restablecimiento es invalido o esta incompleto.</p>
-          <Link to="/recuperar-contrasena" className="btn accent" style={{ marginTop: '1rem' }}>
+          <h3>Token inválido</h3>
+          <p className="muted">El enlace de restablecimiento es inválido o está incompleto.</p>
+          <Link to="/recuperar-contraseña" className="btn accent" style={{ marginTop: '1rem' }}>
             Solicitar nuevo enlace
           </Link>
         </div>
@@ -71,8 +71,8 @@ export default function ResetPasswordPage() {
         <div className="auth-visual-img" aria-hidden="true" />
         <div className="auth-visual-overlay" aria-hidden="true" />
         <div className="auth-visual-content">
-          <h2 className="auth-headline">Crea una nueva contrasena</h2>
-          <p className="auth-subtext">Asegurate que sea segura y diferente a las anteriores.</p>
+          <h2 className="auth-headline">Crea una nueva contraseña</h2>
+          <p className="auth-subtext">Asegúrate de que sea segura y diferente a las anteriores.</p>
         </div>
       </div>
 
@@ -82,17 +82,17 @@ export default function ResetPasswordPage() {
             <KeyIcon />
           </div>
 
-          <h1>Nueva contrasena</h1>
-          <p className="subtitle">Ingresa tu nueva contrasena. Sera valida inmediatamente.</p>
+          <h1>Nueva contraseña</h1>
+          <p className="subtitle">Ingresa tu nueva contraseña. Será válida inmediatamente.</p>
 
           <form className="auth-form" onSubmit={submit} noValidate>
             <label htmlFor="newPassword">
-              Nueva contrasena
+              Nueva contraseña
               <div style={{ position: 'relative' }}>
                 <input
                   id="newPassword"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Min 8 chars, mayuscula, numero y especial"
+                  placeholder="Mínimo 8 caracteres con mayúscula, número y especial"
                   value={form.newPassword}
                   onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
                   required
@@ -104,7 +104,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   aria-pressed={showPassword}
                   style={{
                     position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
@@ -116,15 +116,15 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
               <span id="password-hint" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>
-                Minimo 8 caracteres con mayuscula, minuscula, numero y caracter especial
+                Mínimo 8 caracteres con mayúscula, minúscula, número y carácter especial
               </span>
             </label>
             <label htmlFor="confirm">
-              Confirmar contrasena
+              Confirmar contraseña
               <input
                 id="confirm"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Repite la contrasena"
+                placeholder="Repite la contraseña"
                 value={form.confirm}
                 onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                 required
@@ -132,7 +132,7 @@ export default function ResetPasswordPage() {
               />
               {form.confirm && form.newPassword !== form.confirm && (
                 <span style={{ fontSize: '0.75rem', color: 'var(--error)', marginTop: '0.25rem', display: 'block' }} role="alert">
-                  Las contrasenas no coinciden
+                  Las contraseñas no coinciden
                 </span>
               )}
             </label>
@@ -141,7 +141,7 @@ export default function ResetPasswordPage() {
               style={{ width: '100%', padding: '0.85rem', marginTop: '0.25rem' }}
               disabled={submitting || !form.newPassword || form.newPassword !== form.confirm}
             >
-              {submitting ? 'Guardando...' : 'Restablecer contrasena'}
+              {submitting ? 'Guardando...' : 'Restablecer contraseña'}
             </button>
           </form>
         </div>

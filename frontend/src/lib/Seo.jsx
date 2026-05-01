@@ -41,6 +41,8 @@ export default function Seo({
   type = 'website',
   jsonLd,
   noindex = false,
+  keywords,
+  breadcrumbs,
 }) {
   useEffect(() => {
     const fullTitle = title
@@ -55,6 +57,10 @@ export default function Seo({
 
     setMeta('meta[name="description"]', 'content', desc);
     setMeta('meta[name="robots"]', 'content', noindex ? 'noindex,nofollow' : 'index,follow');
+
+    if (keywords) {
+      setMeta('meta[name="keywords"]', 'content', Array.isArray(keywords) ? keywords.join(', ') : keywords);
+    }
 
     setMeta('meta[property="og:title"]', 'content', fullTitle);
     setMeta('meta[property="og:description"]', 'content', desc);
@@ -77,7 +83,24 @@ export default function Seo({
       const el = document.getElementById('jsonld-page');
       if (el) el.remove();
     }
-  }, [title, description, image, type, jsonLd, noindex]);
+
+    if (breadcrumbs?.length) {
+      const breadcrumbLd = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: breadcrumbs.map((b, idx) => ({
+          '@type': 'ListItem',
+          position: idx + 1,
+          name: b.name,
+          item: b.url ? (b.url.startsWith('http') ? b.url : `${PUBLIC_URL}${b.url}`) : undefined,
+        })),
+      };
+      setJsonLd('jsonld-breadcrumb', breadcrumbLd);
+    } else {
+      const el = document.getElementById('jsonld-breadcrumb');
+      if (el) el.remove();
+    }
+  }, [title, description, image, type, jsonLd, noindex, keywords, breadcrumbs]);
 
   return null;
 }

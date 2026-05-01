@@ -6,6 +6,7 @@ import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
 import Seo from '../lib/Seo';
 import { track } from '../lib/analytics';
+import { getProductImage, handleImgError } from '../lib/productImage';
 import ArtisanSpotlight from '../components/ArtisanSpotlight';
 import Testimonials from '../components/Testimonials';
 
@@ -40,9 +41,9 @@ const ArrowRight = () => (
 );
 
 const CATEGORIES = [
-  { name: 'Ceramica', icon: '🏺', slug: 'ceramica' },
+  { name: 'Cerámica', icon: '🏺', slug: 'ceramica' },
   { name: 'Tejidos', icon: '🧶', slug: 'tejidos' },
-  { name: 'Joyeria', icon: '💍', slug: 'joyeria' },
+  { name: 'Joyería', icon: '💍', slug: 'joyeria' },
   { name: 'Madera', icon: '🪵', slug: 'madera' },
   { name: 'Pintura', icon: '🎨', slug: 'pintura' },
   { name: 'Cuero', icon: '👜', slug: 'cuero' },
@@ -114,13 +115,13 @@ export default function HomePage() {
             </h1>
 
             <p className="hero-desc">
-              Mochilas wayuu, ceramica de Raquira, joyeria en filigrana y mucho mas.
+              Mochilas wayuu, cerámica de Ráquira, joyería en filigrana y mucho más.
               Compra directo al artesano y apoya el trabajo manual de nuestras regiones.
             </p>
 
             <div className="hero-actions">
               <Link className="hero-cta" to="/productos" onClick={() => track('cta_home_clicked', { placement: 'hero', target: 'catalog' })}>
-                Explorar catalogo
+                Explorar catálogo
                 <ArrowRight />
               </Link>
               <Link className="hero-cta-ghost" to="/vende" onClick={() => track('cta_sell_clicked', { placement: 'hero' })}>
@@ -137,7 +138,7 @@ export default function HomePage() {
                 <div className="hero-stat-divider" />
                 <div className="hero-stat">
                   <span className="hero-stat-value">{metrics.products}+</span>
-                  <span className="hero-stat-label">Piezas unicas</span>
+                  <span className="hero-stat-label">Piezas únicas</span>
                 </div>
                 <div className="hero-stat-divider" />
                 <div className="hero-stat">
@@ -157,10 +158,10 @@ export default function HomePage() {
             <div className="showcase-stack">
               {showcase.map((p, i) => (
                 <Link to={`/productos/${p._id}`} key={p._id} className="showcase-card" style={{ '--i': i }}>
-                  <img src={p.images?.[0] || 'https://via.placeholder.com/300x300'} alt={`${p.title} - artesania`} loading="lazy" />
+                  <img src={getProductImage(p)} alt={`${p.title} - artesanía`} loading="lazy" onError={handleImgError} />
                   <div className="showcase-card-info">
                     <span className="showcase-card-title">{p.title}</span>
-                    <span className="showcase-card-price">${p.isPromotion ? p.promotionPrice : p.price}</span>
+                    <span className="showcase-card-price">${(p.isPromotion ? p.promotionPrice : p.price).toLocaleString('es-CO')}</span>
                   </div>
                 </Link>
               ))}
@@ -179,7 +180,7 @@ export default function HomePage() {
           </div>
           <div className="trust-item-bar">
             <div className="trust-icon"><TruckIcon /></div>
-            <div><strong>Envio rapido</strong><span>Entrega en 3-5 dias</span></div>
+            <div><strong>Envío rápido</strong><span>Entrega en 3-5 días</span></div>
           </div>
           <div className="trust-item-bar">
             <div className="trust-icon"><HeartIcon /></div>
@@ -205,7 +206,7 @@ export default function HomePage() {
             <div className="promo-grid">
               {banners.slice(0, 4).map((b) => (
                 <div key={b._id} className="promo-card">
-                  <img src={b.imageUrl} alt={`Promocion: ${b.title}`} className="promo-card-img" loading="lazy" />
+                  <img src={b.imageUrl} alt={`Promoción: ${b.title}`} className="promo-card-img" loading="lazy" onError={handleImgError} />
                   <div className="promo-card-overlay">
                     <h4 className="promo-card-title">{b.title}</h4>
                     <p className="promo-card-desc">{b.description}</p>
@@ -219,10 +220,10 @@ export default function HomePage() {
 
       {/* CATEGORIES */}
       <div className="page" style={{ paddingTop: 0 }}>
-        <section className="section" style={{ marginTop: '1.5rem' }} aria-label="Categorias">
+        <section className="section" style={{ marginTop: '1.5rem' }} aria-label="Categorías">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Explora por categoria</h2>
+              <h2 className="section-title">Explora por categoría</h2>
               <p className="section-subtitle">Encuentra exactamente lo que buscas</p>
             </div>
           </div>
@@ -237,11 +238,11 @@ export default function HomePage() {
         </section>
 
         {/* TOP PRODUCTS */}
-        <section className="section" aria-label="Productos mas vendidos">
+        <section className="section" aria-label="Productos más vendidos">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Los mas vendidos</h2>
-              <p className="section-subtitle">Seleccion curada por demanda y valoraciones</p>
+              <h2 className="section-title">Los más vendidos</h2>
+              <p className="section-subtitle">Selección curada por demanda y valoraciones</p>
             </div>
             <Link to="/productos" className="btn secondary">Ver todo</Link>
           </div>
@@ -261,7 +262,7 @@ export default function HomePage() {
           <div className="card" style={{ padding: '2rem', textAlign: 'center', background: 'linear-gradient(135deg, var(--accent-light), var(--bg-warm))' }}>
             <h2 style={{ margin: '0 0 0.5rem' }}>¿Eres artesano? Tu vitrina te espera</h2>
             <p className="muted" style={{ margin: '0 0 1.25rem' }}>
-              0% comision los primeros 3 meses. Aprobacion en menos de 24 horas.
+              0% comisión los primeros 3 meses. Aprobación en menos de 24 horas.
             </p>
             <Link
               to="/vende"

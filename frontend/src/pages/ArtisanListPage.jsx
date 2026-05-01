@@ -6,14 +6,14 @@ import ErrorState from '../ui/ErrorState';
 import Seo from '../lib/Seo';
 
 const REGIONS = [
-  'Antioquia', 'Atlantico', 'Bogota D.C.', 'Bolivar', 'Boyaca', 'Caldas', 'Caqueta', 'Cauca',
-  'Cesar', 'Choco', 'Cordoba', 'Cundinamarca', 'Huila', 'La Guajira', 'Magdalena', 'Meta',
-  'Nariño', 'Norte de Santander', 'Putumayo', 'Quindio', 'Risaralda', 'Santander', 'Sucre',
+  'Antioquia', 'Atlántico', 'Bogotá D.C.', 'Bolívar', 'Boyacá', 'Caldas', 'Caquetá', 'Cauca',
+  'Cesar', 'Chocó', 'Córdoba', 'Cundinamarca', 'Huila', 'La Guajira', 'Magdalena', 'Meta',
+  'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío', 'Risaralda', 'Santander', 'Sucre',
   'Tolima', 'Valle del Cauca',
 ];
 
 const CRAFTS = [
-  'Ceramica', 'Tejido (mochilas, telar)', 'Joyeria y filigrana', 'Madera y tallado',
+  'Cerámica', 'Tejido (mochilas, telar)', 'Joyería y filigrana', 'Madera y tallado',
   'Cuero', 'Vidrio', 'Iraca y palma', 'Mopa-mopa', 'Pintura y arte',
 ];
 
@@ -54,12 +54,12 @@ export default function ArtisanListPage() {
     <main className="page" role="main">
       <Seo
         title="Artesanos en Colombia"
-        description="Descubre a los artesanos detras de cada pieza. Filtra por oficio y region."
+        description="Descubre a los artesanos detrás de cada pieza. Filtra por oficio y región."
       />
       <div className="section-header">
         <div>
           <h1 className="section-title">Artesanos</h1>
-          <p className="section-subtitle">Conoce los talleres detras de cada pieza.</p>
+          <p className="section-subtitle">Conoce los talleres detrás de cada pieza.</p>
         </div>
         <Link to="/vende" className="btn secondary">¿Eres artesano?</Link>
       </div>
@@ -73,7 +73,7 @@ export default function ArtisanListPage() {
           </select>
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-          <span className="muted" style={{ fontSize: '0.85rem' }}>Region:</span>
+          <span className="muted" style={{ fontSize: '0.85rem' }}>Región:</span>
           <select value={region} onChange={(e) => updateFilter('region', e.target.value)}>
             <option value="">Todas</option>
             {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -97,9 +97,9 @@ export default function ArtisanListPage() {
         <ErrorState title="No pudimos cargar los artesanos" onRetry={() => setSearchParams(searchParams)} />
       ) : artisans.length === 0 ? (
         <div className="empty-state" style={{ marginTop: '2rem' }}>
-          <h3>Aun no hay artesanos con esos filtros</h3>
-          <p className="muted">Prueba quitando algun filtro o vuelve pronto. Cada semana sumamos talleres nuevos.</p>
-          <Link to="/vende" className="btn accent" style={{ marginTop: '1rem' }}>¿Eres artesano? Vende aqui</Link>
+          <h3>Aún no hay artesanos con esos filtros</h3>
+          <p className="muted">Prueba quitando algún filtro o vuelve pronto. Cada semana sumamos talleres nuevos.</p>
+          <Link to="/vende" className="btn accent" style={{ marginTop: '1rem' }}>¿Eres artesano? Vende aquí</Link>
         </div>
       ) : (
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>

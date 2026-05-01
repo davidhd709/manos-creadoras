@@ -6,20 +6,26 @@ import ErrorState from '../ui/ErrorState';
 import Seo from '../lib/Seo';
 import { useAuth } from '../state/AuthContext';
 import { track } from '../lib/analytics';
-
-const SUPPORT_WHATSAPP = import.meta.env.VITE_SUPPORT_WHATSAPP || '573001234567';
+import {
+  HAS_SUPPORT_WHATSAPP,
+  SUPPORT_EMAIL,
+  buildSupportEmailLink,
+  buildSupportWaLink,
+} from '../lib/support';
 
 const STATUS_LABEL = {
-  awaiting_payment: 'Esperando pago / coordinacion',
-  pendiente: 'Pago confirmado, en preparacion',
+  awaiting_payment: 'Esperando pago / coordinación',
+  pendiente: 'Pago confirmado, en preparación',
   en_proceso: 'En proceso',
   enviado: 'Enviado',
   entregado: 'Entregado',
   cancelado: 'Cancelado',
 };
 
+const STATUS_FLOW = ['awaiting_payment', 'pendiente', 'en_proceso', 'enviado', 'entregado'];
+
 const PAYMENT_LABEL = {
-  whatsapp: 'Coordinacion por WhatsApp',
+  whatsapp: 'Coordinación por WhatsApp',
   transfer: 'Transferencia bancaria',
   cod: 'Pago contra entrega',
 };
@@ -79,11 +85,18 @@ export default function OrderConfirmation() {
   const artisans = getArtisansFromOrder(order);
   const total = (order.totalOrder || 0).toLocaleString('es-CO');
   const id6 = order._id?.slice(-6);
-  const whatsappLink = `https://wa.me/${SUPPORT_WHATSAPP}?text=${buildWhatsAppMessage(order)}`;
+  const supportWaLink = HAS_SUPPORT_WHATSAPP
+    ? `${buildSupportWaLink()}&text=${buildWhatsAppMessage(order)}`
+    : null;
   const artisanWhatsapp = artisans[0]?.whatsapp;
-  const primaryWaLink = artisanWhatsapp
-    ? `https://wa.me/${String(artisanWhatsapp).replace(/[^0-9]/g, '')}?text=${buildWhatsAppMessage(order)}`
-    : whatsappLink;
+  const cleanArtisanWa = artisanWhatsapp ? String(artisanWhatsapp).replace(/[^0-9]/g, '') : '';
+  const primaryWaLink = cleanArtisanWa
+    ? `https://wa.me/${cleanArtisanWa}?text=${buildWhatsAppMessage(order)}`
+    : supportWaLink;
+  const supportEmailLink = buildSupportEmailLink(
+    `Pedido #${id6}`,
+    `Hola, soy ${order.shippingAddress?.name || 'un comprador'}. Tengo una consulta sobre el pedido #${id6} por $${total} COP.`,
+  );
 
   return (
     <main className="page" role="main">
@@ -96,36 +109,60 @@ export default function OrderConfirmation() {
           <p className="muted" style={{ marginTop: '0.5rem' }}>Estado: <strong>{STATUS_LABEL[order.status] || order.status}</strong></p>
         </div>
 
+        {order.status !== 'cancelado' && (
+          <ol className="order-timeline" aria-label="Progreso del pedido">
+            {STATUS_FLOW.map((s, idx) => {
+              const currentIdx = STATUS_FLOW.indexOf(order.status);
+              const done = currentIdx >= 0 && idx <= currentIdx;
+              return (
+                <li key={s} className={`order-step ${done ? 'done' : ''}`}>
+                  <span className="order-step-dot">{done ? '✓' : idx + 1}</span>
+                  <span className="order-step-label">{STATUS_LABEL[s]}</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
         <section className="card" style={{ padding: '1.5rem', marginTop: '1rem' }}>
           <h2 style={{ margin: '0 0 0.5rem' }}>Siguiente paso</h2>
           {order.paymentMethod === 'whatsapp' && (
             <>
-              <p>Escribele al artesano por WhatsApp para coordinar el pago y el envio. Te dejamos el mensaje listo.</p>
-              <a href={primaryWaLink} target="_blank" rel="noopener noreferrer" className="btn accent" style={{ padding: '0.85rem 1.5rem' }}>
-                Coordinar por WhatsApp
-              </a>
+              <p>Coordina el pago y el envío directamente con el artesano. Te dejamos el mensaje listo.</p>
+              {primaryWaLink ? (
+                <a href={primaryWaLink} target="_blank" rel="noopener noreferrer" className="btn accent" style={{ padding: '0.85rem 1.5rem' }}>
+                  Coordinar por WhatsApp
+                </a>
+              ) : (
+                <a href={supportEmailLink} className="btn accent" style={{ padding: '0.85rem 1.5rem' }}>
+                  Escribirnos por correo
+                </a>
+              )}
             </>
           )}
           {order.paymentMethod === 'transfer' && (
             <>
-              <p>Realiza la transferencia con los datos de pago del artesano. Te enviamos los datos por correo y los puedes pedir tambien por WhatsApp.</p>
+              <p>Realiza la transferencia con los datos de pago del artesano. Te enviamos los datos por correo y los puedes pedir también por WhatsApp.</p>
               <ul>
-                {artisans.map((a) => (
-                  <li key={a._id || a.toString()}>
-                    <strong>{a.name || 'Artesano'}</strong>
-                    {a.whatsapp ? <> · <a href={`https://wa.me/${String(a.whatsapp).replace(/[^0-9]/g, '')}?text=${buildWhatsAppMessage(order)}`} target="_blank" rel="noopener noreferrer">Pedir datos por WhatsApp</a></> : null}
-                  </li>
-                ))}
+                {artisans.map((a) => {
+                  const wa = a.whatsapp ? String(a.whatsapp).replace(/[^0-9]/g, '') : '';
+                  return (
+                    <li key={a._id || a.toString()}>
+                      <strong>{a.name || 'Artesano'}</strong>
+                      {wa ? <> · <a href={`https://wa.me/${wa}?text=${buildWhatsAppMessage(order)}`} target="_blank" rel="noopener noreferrer">Pedir datos por WhatsApp</a></> : null}
+                    </li>
+                  );
+                })}
               </ul>
               <p className="muted" style={{ fontSize: '0.85rem' }}>
-                Cuando el artesano confirme el pago veras tu pedido en estado "Pago confirmado".
+                Cuando el artesano confirme el pago verás tu pedido en estado "Pago confirmado".
               </p>
             </>
           )}
           {order.paymentMethod === 'cod' && (
             <>
-              <p>Pagas al recibir el producto. El artesano se contactara contigo para coordinar el dia y hora de entrega.</p>
-              <p className="muted" style={{ fontSize: '0.85rem' }}>Disponible solo en ciudades capitales. Si el artesano no puede ofrecer contraentrega te lo informara por WhatsApp.</p>
+              <p>Pagas al recibir el producto. El artesano se contactará contigo para coordinar el día y hora de entrega.</p>
+              <p className="muted" style={{ fontSize: '0.85rem' }}>Disponible solo en ciudades capitales. Si el artesano no puede ofrecer contraentrega te lo informará por WhatsApp.</p>
             </>
           )}
         </section>
@@ -144,7 +181,7 @@ export default function OrderConfirmation() {
 
         {order.shippingAddress && (
           <section className="card" style={{ padding: '1.5rem', marginTop: '1rem' }}>
-            <h2 style={{ margin: '0 0 0.5rem' }}>Direccion de envio</h2>
+            <h2 style={{ margin: '0 0 0.5rem' }}>Dirección de envío</h2>
             <p className="muted" style={{ margin: 0 }}>
               {order.shippingAddress.address}, {order.shippingAddress.city}{order.shippingAddress.department ? `, ${order.shippingAddress.department}` : ''}<br />
               {order.shippingAddress.phone && <>Tel: {order.shippingAddress.phone}</>}
@@ -155,9 +192,15 @@ export default function OrderConfirmation() {
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
           <Link to="/productos" className="btn secondary">Seguir comprando</Link>
           {user && <Link to="/dashboard/pedidos" className="btn secondary">Ver mis pedidos</Link>}
-          <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="btn accent">
-            ¿Dudas? Escribe a soporte
-          </a>
+          {supportWaLink ? (
+            <a href={supportWaLink} target="_blank" rel="noopener noreferrer" className="btn accent">
+              ¿Dudas? Escribe a soporte
+            </a>
+          ) : (
+            <a href={supportEmailLink} className="btn accent">
+              ¿Dudas? Escríbenos a {SUPPORT_EMAIL}
+            </a>
+          )}
         </div>
       </div>
     </main>

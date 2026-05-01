@@ -42,11 +42,13 @@ export default function OrderManagement() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [filter, setFilter] = useState('');
 
+  const isPlatformAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
   const fetchOrders = useCallback(() => {
     setLoading(true);
     setError(false);
     const endpoint =
-      user.role === 'admin' ? '/orders' :
+      isPlatformAdmin ? '/orders' :
       user.role === 'artisan' ? '/orders/artisan' :
       '/orders/my';
 
@@ -54,7 +56,7 @@ export default function OrderManagement() {
       .then(({ data }) => setOrders(data))
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, isPlatformAdmin]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -84,7 +86,7 @@ export default function OrderManagement() {
 
   const filtered = filter ? orders.filter((o) => o.status === filter) : orders;
 
-  if (!user) return <div className="page"><div className="empty-state"><h3>Inicia sesion</h3><Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>Iniciar sesion</Link></div></div>;
+  if (!user) return <div className="page"><div className="empty-state"><h3>Inicia sesión</h3><Link to="/login" className="btn accent" style={{ marginTop: '1rem' }}>Iniciar sesión</Link></div></div>;
   if (loading) return <Spinner />;
   if (error) return <div className="page"><ErrorState title="Error al cargar pedidos" message="No pudimos obtener la lista de pedidos." onRetry={fetchOrders} backTo="/dashboard" backLabel="Volver al dashboard" /></div>;
 
@@ -98,8 +100,18 @@ export default function OrderManagement() {
 
       <div className="section-header">
         <div>
-          <h1 className="section-title">Gestion de pedidos</h1>
-          <p className="section-subtitle">{orders.length} pedidos en total</p>
+          <h1 className="section-title">
+            {user.role === 'superadmin'
+              ? 'Pedidos globales'
+              : user.role === 'buyer'
+                ? 'Mis pedidos'
+                : 'Gestión de pedidos'}
+          </h1>
+          <p className="section-subtitle">
+            {user.role === 'superadmin'
+              ? `${orders.length} pedidos en la plataforma (vista global)`
+              : `${orders.length} pedidos en total`}
+          </p>
         </div>
       </div>
 

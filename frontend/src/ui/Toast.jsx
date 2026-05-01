@@ -26,7 +26,7 @@ export const ToastProvider = ({ children }) => {
         {toasts.filter((t) => t.type !== 'error').map((t) => (
           <div key={t.id} className={`toast toast-${t.type}`}>
             <span>{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="toast-dismiss" aria-label="Cerrar notificacion">&times;</button>
+            <button onClick={() => dismiss(t.id)} className="toast-dismiss" aria-label="Cerrar notificación">&times;</button>
           </div>
         ))}
       </div>
@@ -34,7 +34,7 @@ export const ToastProvider = ({ children }) => {
         {toasts.filter((t) => t.type === 'error').map((t) => (
           <div key={t.id} className={`toast toast-${t.type}`}>
             <span>{t.message}</span>
-            <button onClick={() => dismiss(t.id)} className="toast-dismiss" aria-label="Cerrar notificacion">&times;</button>
+            <button onClick={() => dismiss(t.id)} className="toast-dismiss" aria-label="Cerrar notificación">&times;</button>
           </div>
         ))}
       </div>

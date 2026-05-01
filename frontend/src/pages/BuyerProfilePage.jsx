@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { useToast } from '../ui/Toast';
 import Spinner from '../ui/Spinner';
 
 export default function BuyerProfilePage() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const returnTo = params.get('return') || '';
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -35,10 +38,17 @@ export default function BuyerProfilePage() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.address.trim() || !form.city.trim() || !form.phone.trim()) {
+      toast.error('Dirección, ciudad y teléfono son obligatorios');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.put('/clients/me', form);
       toast.success('Perfil actualizado correctamente');
+      if (returnTo && returnTo.startsWith('/')) {
+        navigate(returnTo);
+      }
     } catch (err) {
       const msg = err.response?.data?.message || 'Error al guardar';
       toast.error(Array.isArray(msg) ? msg[0] : msg);
@@ -60,33 +70,41 @@ export default function BuyerProfilePage() {
       <div className="section-header">
         <div>
           <h1 className="section-title">Mi perfil</h1>
-          <p className="section-subtitle">Completa tu direccion de envio para poder realizar pedidos</p>
+          <p className="section-subtitle">Completa tu dirección de envío para poder realizar pedidos</p>
         </div>
       </div>
 
       <form onSubmit={submit} style={{ display: 'grid', gap: '2rem', marginTop: '1.5rem' }}>
         <div className="card" style={{ padding: '2rem' }}>
-          <h2 style={{ fontSize: '1.15rem', marginBottom: '1.5rem' }}>Direccion de envio</h2>
+          <h2 style={{ fontSize: '1.15rem', marginBottom: '1.5rem' }}>Dirección de envío</h2>
           <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
             <label style={{ gridColumn: '1 / -1' }}>
-              Direccion *
-              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Calle, numero, barrio..." />
+              Dirección *
+              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Calle, número, barrio..." />
             </label>
             <label>
               Ciudad *
-              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Ej: Bogota" />
+              <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Ej: Bogotá" />
             </label>
             <label>
               Departamento
               <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Ej: Cundinamarca" />
             </label>
             <label>
-              Codigo postal
+              Código postal
               <input value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Ej: 110111" />
             </label>
             <label>
-              Telefono
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} style={{ width: '100%', marginTop: '0.4rem' }} placeholder="Ej: 300 123 4567" />
+              Teléfono *
+              <input
+                type="tel"
+                inputMode="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                required
+                style={{ width: '100%', marginTop: '0.4rem' }}
+                placeholder="Ej: 300 123 4567"
+              />
             </label>
           </div>
         </div>
