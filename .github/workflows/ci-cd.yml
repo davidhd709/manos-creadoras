@@ -142,7 +142,10 @@ jobs:
             # Bajar las nuevas imágenes del registry
             docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 
-            # Reiniciar servicios con las imágenes nuevas (sin downtime en postgres)
+            # Detener backend y frontend antes de rearrancar (evita conflictos de puerto)
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml stop backend frontend || true
+
+            # Reiniciar servicios con las imágenes nuevas
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
             # Limpiar imágenes antiguas para liberar espacio
