@@ -5,6 +5,14 @@
 services:
   backend:
     image: ghcr.io/davidhd709/manos-creadoras-backend:latest
+    networks:
+      - manos-net
 
   frontend:
     image: ghcr.io/davidhd709/manos-creadoras-frontend:latest
+    networks:
+      - manos-net
+
+networks:
+  manos-net:
+    driver: bridge

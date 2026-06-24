@@ -133,8 +133,9 @@ jobs:
             set -e
             cd /home/ingenierohenry/manos-creadoras1
 
-            # Actualizar archivos de configuración (docker-compose, nginx, etc.)
-            git pull origin main
+            # Actualizar archivos de configuración forzando el estado de main
+            git fetch origin
+            git reset --hard origin/main
 
             # Autenticar en GHCR para poder bajar las imágenes privadas
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
