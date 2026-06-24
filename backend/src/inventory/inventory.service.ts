@@ -2,7 +2,6 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { InventoryRepository } from './inventory.repository';
 import { ProductsRepository } from '../products/products.repository';
 import { UpdateStockDto } from './dto/update-stock.dto';
-import { MovementType } from './schemas/inventory.schema';
 
 @Injectable()
 export class InventoryService {
@@ -19,10 +18,10 @@ export class InventoryService {
     let newStock: number;
 
     switch (dto.type) {
-      case MovementType.Entry:
+      case 'entrada':
         newStock = previousStock + dto.quantity;
         break;
-      case MovementType.Exit:
+      case 'salida':
         if (previousStock < dto.quantity) {
           throw new BadRequestException(
             `Stock insuficiente. Disponible: ${previousStock}, solicitado: ${dto.quantity}`,
@@ -30,21 +29,23 @@ export class InventoryService {
         }
         newStock = previousStock - dto.quantity;
         break;
-      case MovementType.Adjustment:
+      case 'ajuste':
         newStock = dto.quantity;
         break;
+      default:
+        newStock = previousStock;
     }
 
     await this.productsRepository.update(productId, { stock: newStock });
 
     return this.inventoryRepository.create({
-      product: productId as any,
-      type: dto.type,
+      productId,
+      type: dto.type as any,
       quantity: dto.quantity,
       previousStock,
       newStock,
       reason: dto.reason,
-      performedBy: user.userId,
+      performedById: user.userId,
     });
   }
 
@@ -69,7 +70,7 @@ export class InventoryService {
     const summaries = [];
 
     for (const product of products) {
-      const movements = await this.inventoryRepository.findByProduct(product._id.toString());
+      const movements = await this.inventoryRepository.findByProduct(product.id);
       const totalEntries = movements
         .filter((m) => m.type === 'entrada')
         .reduce((sum, m) => sum + m.quantity, 0);
@@ -79,7 +80,7 @@ export class InventoryService {
 
       summaries.push({
         product: {
-          _id: product._id,
+          id: product.id,
           title: product.title,
           category: product.category,
           price: product.price,

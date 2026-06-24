@@ -5,7 +5,7 @@ import { ProductsRepository } from '../products/products.repository';
 import { InventoryRepository } from '../inventory/inventory.repository';
 import { ClientsRepository } from '../clients/clients.repository';
 import { MailService } from '../mail/mail.service';
-import { PaymentMethod } from './schemas/order.schema';
+import { PaymentMethod } from '@prisma/client';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('OrdersService', () => {
@@ -69,7 +69,7 @@ describe('OrdersService', () => {
     const createDto: any = {
       items: [{ product: 'prod1', quantity: 2, unitPrice: 100, totalItem: 200 }],
       totalOrder: 200,
-      paymentMethod: PaymentMethod.Whatsapp,
+      paymentMethod: 'whatsapp',
     };
 
     it('should throw if buyer has no shipping address', async () => {

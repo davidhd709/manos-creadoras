@@ -11,7 +11,6 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RegisterArtisanDto } from './dto/register-artisan.dto';
 import { Role } from '../common/roles.enum';
-import { VerificationStatus } from '../users/schemas/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +21,6 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    // Solo compradores pueden auto-registrarse
     if (dto.role && dto.role !== Role.Buyer) {
       throw new ForbiddenException('Solo puedes registrarte como comprador. Las cuentas de artesano son creadas por el administrador.');
     }
@@ -30,7 +28,7 @@ export class AuthService {
     const exists = await this.usersService.findByEmail(dto.email);
     if (exists) throw new ConflictException('El correo ya esta registrado');
     const hashed = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create({ ...dto, role: Role.Buyer, password: hashed });
+    const user = await this.usersService.create({ ...dto, role: Role.Buyer, password: hashed } as any);
     return this.signToken(user);
   }
 
@@ -38,11 +36,11 @@ export class AuthService {
     const exists = await this.usersService.findByEmail(dto.email);
     if (exists) throw new ConflictException('El correo ya esta registrado');
 
-    let referredBy: any = undefined;
+    let referredById: string | undefined;
     if (dto.referralCode) {
       const referrer = await this.usersService.findById(dto.referralCode);
       if (referrer && referrer.role === Role.Artisan) {
-        referredBy = referrer._id;
+        referredById = referrer.id;
       }
     }
 
@@ -57,10 +55,10 @@ export class AuthService {
       craft: dto.craft,
       region: dto.region,
       applicationNotes: dto.applicationNotes,
-      verificationStatus: VerificationStatus.Pending,
+      verificationStatus: 'pending',
       isActive: false,
       mustChangePassword: false,
-      referredBy,
+      referredById,
     } as any);
 
     await this.mailService.sendArtisanApplicationReceived(user.email, user.name).catch(() => {});
@@ -68,7 +66,7 @@ export class AuthService {
 
     return {
       message: 'Recibimos tu solicitud. Te avisaremos en menos de 24 horas cuando tu cuenta este aprobada.',
-      status: VerificationStatus.Pending,
+      status: 'pending',
     };
   }
 
@@ -76,10 +74,10 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Credenciales invalidas');
     if (!user.isActive) {
-      if (user.verificationStatus === VerificationStatus.Pending) {
+      if (user.verificationStatus === 'pending') {
         throw new UnauthorizedException('Tu solicitud de artesano esta en revision. Te avisaremos por correo cuando este aprobada.');
       }
-      if (user.verificationStatus === VerificationStatus.Rejected) {
+      if (user.verificationStatus === 'rejected') {
         throw new UnauthorizedException('Tu solicitud de artesano fue rechazada. Escribenos para mas detalles.');
       }
       throw new UnauthorizedException('Tu cuenta ha sido desactivada');
@@ -116,16 +114,15 @@ export class AuthService {
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.usersService.findByEmail(dto.email);
-    // Respuesta generica para evitar enumeracion de usuarios
     const genericResponse = { message: 'Si el correo existe, recibiras instrucciones para restablecer tu contrasena' };
 
     if (!user || !user.isActive) return genericResponse;
 
     const rawToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
 
-    await this.usersService.update(user._id.toString(), {
+    await this.usersService.update(user.id, {
       passwordResetToken: hashedToken,
       passwordResetExpires: expires,
     } as any);
@@ -144,10 +141,10 @@ export class AuthService {
     }
 
     const hashed = await bcrypt.hash(dto.newPassword, 10);
-    await this.usersService.update(user._id.toString(), {
+    await this.usersService.update(user.id, {
       password: hashed,
-      passwordResetToken: undefined,
-      passwordResetExpires: undefined,
+      passwordResetToken: null,
+      passwordResetExpires: null,
       mustChangePassword: false,
     } as any);
 
@@ -155,8 +152,8 @@ export class AuthService {
   }
 
   private signToken(user: any) {
-    const payload = { sub: user._id, email: user.email, role: user.role };
-    const { password, ...safeUser } = user.toObject ? user.toObject() : user;
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const { password, passwordResetToken, passwordResetExpires, ...safeUser } = user;
     return { access_token: this.jwtService.sign(payload), user: safeUser };
   }
 }

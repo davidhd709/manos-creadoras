@@ -1,57 +1,61 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Client } from './schemas/client.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+const USER_SELECT = { id: true, name: true, email: true };
 
 @Injectable()
 export class ClientsRepository {
-  constructor(@InjectModel(Client.name) private readonly clientModel: Model<Client>) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Partial<Client>): Promise<Client> {
-    return this.clientModel.create(data);
+  async create(data: Prisma.ClientProfileCreateInput) {
+    return this.prisma.clientProfile.create({ data, include: { user: { select: USER_SELECT } } });
   }
 
-  async findByUserId(userId: string): Promise<Client | null> {
-    return this.clientModel.findOne({ user: userId }).populate('user', 'name email').exec();
+  async findByUserId(userId: string) {
+    return this.prisma.clientProfile.findUnique({
+      where: { userId },
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async findAll(): Promise<Client[]> {
-    return this.clientModel.find().populate('user', 'name email').sort({ totalSpent: -1 }).exec();
+  async findAll() {
+    return this.prisma.clientProfile.findMany({
+      include: { user: { select: USER_SELECT } },
+      orderBy: { totalSpent: 'desc' },
+    });
   }
 
-  async update(userId: string, data: Partial<Client>): Promise<Client | null> {
-    return this.clientModel
-      .findOneAndUpdate({ user: userId }, data, { new: true, upsert: true })
-      .populate('user', 'name email')
-      .exec();
+  async update(userId: string, data: Prisma.ClientProfileUpdateInput) {
+    return this.prisma.clientProfile.upsert({
+      where: { userId },
+      update: data,
+      create: { userId, ...data } as any,
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async incrementPurchases(userId: string, amount: number): Promise<void> {
-    await this.clientModel.findOneAndUpdate(
-      { user: userId },
-      { $inc: { totalPurchases: 1, totalSpent: amount } },
-      { upsert: true },
-    );
+  async incrementPurchases(userId: string, amount: number) {
+    await this.prisma.clientProfile.upsert({
+      where: { userId },
+      update: { totalPurchases: { increment: 1 }, totalSpent: { increment: amount } },
+      create: { userId, totalPurchases: 1, totalSpent: amount },
+    });
   }
 
-  async incrementPurchaseStats(userId: string, totalSpent: number): Promise<void> {
-    await this.clientModel.findOneAndUpdate(
-      { user: userId },
-      { $inc: { totalPurchases: 1, totalSpent } },
-      { upsert: true },
-    );
+  async incrementPurchaseStats(userId: string, totalSpent: number) {
+    await this.incrementPurchases(userId, totalSpent);
   }
 
-  async count(): Promise<number> {
-    return this.clientModel.countDocuments().exec();
+  async count() {
+    return this.prisma.clientProfile.count();
   }
 
-  async getTopClients(limit = 10): Promise<Client[]> {
-    return this.clientModel
-      .find()
-      .populate('user', 'name email')
-      .sort({ totalSpent: -1 })
-      .limit(limit)
-      .exec();
+  async getTopClients(limit = 10) {
+    return this.prisma.clientProfile.findMany({
+      include: { user: { select: USER_SELECT } },
+      orderBy: { totalSpent: 'desc' },
+      take: limit,
+    });
   }
 }

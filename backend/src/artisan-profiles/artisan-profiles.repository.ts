@@ -1,64 +1,71 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { ArtisanProfile } from './schemas/artisan-profile.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+const USER_SELECT = {
+  id: true, name: true, email: true, isActive: true,
+  verificationStatus: true, craft: true, region: true,
+  whatsapp: true, instagram: true,
+};
 
 @Injectable()
 export class ArtisanProfilesRepository {
-  constructor(
-    @InjectModel(ArtisanProfile.name) private readonly model: Model<ArtisanProfile>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findByUserId(userId: string): Promise<ArtisanProfile | null> {
-    return this.model.findOne({ user: userId }).populate('user', 'name email').exec();
+  async findByUserId(userId: string) {
+    return this.prisma.artisanProfile.findUnique({
+      where: { userId },
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async upsert(userId: string, data: Partial<ArtisanProfile>): Promise<ArtisanProfile> {
-    return this.model
-      .findOneAndUpdate({ user: userId }, { ...data, user: userId }, { new: true, upsert: true })
-      .populate('user', 'name email')
-      .exec();
+  async upsert(userId: string, data: Record<string, any>) {
+    const { businessName, ...rest } = data;
+    return this.prisma.artisanProfile.upsert({
+      where: { userId },
+      update: rest,
+      create: { userId, businessName: businessName ?? '', ...rest } as any,
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async findAll(): Promise<ArtisanProfile[]> {
-    return this.model.find().populate('user', 'name email').exec();
+  async findAll() {
+    return this.prisma.artisanProfile.findMany({
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async findBySlug(slug: string): Promise<ArtisanProfile | null> {
-    return this.model
-      .findOne({ slug })
-      .populate('user', 'name email isActive verificationStatus craft region whatsapp instagram')
-      .exec();
+  async findBySlug(slug: string) {
+    return this.prisma.artisanProfile.findUnique({
+      where: { slug },
+      include: { user: { select: USER_SELECT } },
+    });
   }
 
-  async findPublic(filter: { craft?: string; region?: string; limit?: number } = {}): Promise<ArtisanProfile[]> {
-    const q: any = { onboardingCompleted: true };
-    if (filter.craft) q.craft = filter.craft;
-    if (filter.region) q.region = filter.region;
-    return this.model
-      .find(q)
-      .populate({
-        path: 'user',
-        match: { isActive: true, verificationStatus: 'approved' },
-        select: 'name craft region',
-      })
-      .sort({ updatedAt: -1 })
-      .limit(filter.limit ?? 24)
-      .exec()
-      .then((rows) => rows.filter((p) => (p as any).user));
+  async findPublic(filter: { craft?: string; region?: string; limit?: number } = {}) {
+    return this.prisma.artisanProfile.findMany({
+      where: {
+        onboardingCompleted: true,
+        ...(filter.craft ? { craft: filter.craft } : {}),
+        ...(filter.region ? { region: filter.region } : {}),
+        user: { isActive: true, verificationStatus: 'approved' },
+      },
+      include: { user: { select: { id: true, name: true, craft: true, region: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: filter.limit ?? 24,
+    });
   }
 
-  async featured(limit = 3): Promise<ArtisanProfile[]> {
-    return this.model
-      .find({ onboardingCompleted: true, story: { $exists: true, $ne: '' } })
-      .populate({
-        path: 'user',
-        match: { isActive: true, verificationStatus: 'approved' },
-        select: 'name craft region',
-      })
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .exec()
-      .then((rows) => rows.filter((p) => (p as any).user));
+  async featured(limit = 3) {
+    return this.prisma.artisanProfile.findMany({
+      where: {
+        onboardingCompleted: true,
+        story: { not: null },
+        user: { isActive: true, verificationStatus: 'approved' },
+      },
+      include: { user: { select: { id: true, name: true, craft: true, region: true } } },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+    });
   }
 }

@@ -1,162 +1,174 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Product } from './schemas/product.schema';
-import { Review } from './schemas/review.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+const ARTISAN_SELECT = { id: true, name: true, email: true };
 
 @Injectable()
 export class ProductsRepository {
-  constructor(
-    @InjectModel(Product.name) private readonly productModel: Model<Product>,
-    @InjectModel(Review.name) private readonly reviewModel: Model<Review>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // --- Products ---
-
-  async create(data: Partial<Product>): Promise<Product> {
-    return this.productModel.create(data);
+  async create(data: Prisma.ProductCreateInput) {
+    return this.prisma.product.create({
+      data,
+      include: { artisan: { select: ARTISAN_SELECT } },
+    });
   }
 
-  async findById(id: string): Promise<Product | null> {
-    return this.productModel.findById(id).populate('artisan', 'name email').exec();
+  async findById(id: string) {
+    return this.prisma.product.findUnique({
+      where: { id },
+      include: { artisan: { select: ARTISAN_SELECT } },
+    });
   }
 
   async findPaginated(
-    filter: Record<string, any>,
+    filter: Prisma.ProductWhereInput,
     page: number,
     limit: number,
-    sort: Record<string, 1 | -1> = { soldCount: -1, ratingAverage: -1, createdAt: -1 },
-  ): Promise<{ data: Product[]; total: number }> {
+    orderBy: Prisma.ProductOrderByWithRelationInput = { soldCount: 'desc' },
+  ) {
     const skip = (page - 1) * limit;
-    const [data, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .populate('artisan', 'name')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.productModel.countDocuments(filter),
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({
+        where: filter,
+        include: { artisan: { select: { id: true, name: true } } },
+        orderBy,
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where: filter }),
     ]);
     return { data, total };
   }
 
-  async findTop(limit = 10): Promise<Product[]> {
-    return this.productModel.find().sort({ soldCount: -1 }).limit(limit).exec();
+  async findTop(limit = 10) {
+    return this.prisma.product.findMany({
+      orderBy: { soldCount: 'desc' },
+      take: limit,
+      include: { artisan: { select: ARTISAN_SELECT } },
+    });
   }
 
-  async findByArtisan(artisanId: string): Promise<Product[]> {
-    return this.productModel.find({ artisan: artisanId }).exec();
+  async findByArtisan(artisanId: string) {
+    return this.prisma.product.findMany({ where: { artisanId } });
   }
 
-  async aggregateArtisanStats(artisanId: string): Promise<{
-    totalProducts: number;
-    totalSold: number;
-    avgRating: number;
-    ratedProducts: number;
-  }> {
-    const result = await this.productModel.aggregate([
-      { $match: { artisan: new Types.ObjectId(artisanId) } },
-      {
-        $group: {
-          _id: null,
-          totalProducts: { $sum: 1 },
-          totalSold: { $sum: '$soldCount' },
-          avgRating: { $avg: { $cond: [{ $gt: ['$ratingAverage', 0] }, '$ratingAverage', null] } },
-          ratedProducts: { $sum: { $cond: [{ $gt: ['$ratingAverage', 0] }, 1, 0] } },
-        },
-      },
-    ]);
-    const r = result[0] || {};
+  async aggregateArtisanStats(artisanId: string) {
+    const agg = await this.prisma.product.aggregate({
+      where: { artisanId },
+      _count: { id: true },
+      _sum: { soldCount: true },
+      _avg: { ratingAverage: true },
+    });
+    const ratedProducts = await this.prisma.product.count({
+      where: { artisanId, ratingAverage: { gt: 0 } },
+    });
     return {
-      totalProducts: r.totalProducts || 0,
-      totalSold: r.totalSold || 0,
-      avgRating: r.avgRating || 0,
-      ratedProducts: r.ratedProducts || 0,
+      totalProducts: agg._count.id,
+      totalSold: agg._sum.soldCount ?? 0,
+      avgRating: agg._avg.ratingAverage ?? 0,
+      ratedProducts,
     };
   }
 
-  async update(id: string, data: Partial<Product>): Promise<Product | null> {
-    return this.productModel.findByIdAndUpdate(id, data, { new: true }).exec();
+  async update(id: string, data: Prisma.ProductUpdateInput) {
+    return this.prisma.product.update({ where: { id }, data });
   }
 
-  async delete(id: string): Promise<void> {
-    await this.productModel.findByIdAndDelete(id).exec();
+  async delete(id: string) {
+    await this.prisma.product.delete({ where: { id } });
   }
 
-  async updateStock(id: string, quantity: number): Promise<Product | null> {
-    return this.productModel
-      .findByIdAndUpdate(id, { $inc: { stock: quantity, soldCount: -quantity } }, { new: true })
-      .exec();
+  async updateStock(id: string, quantity: number) {
+    return this.prisma.product.update({
+      where: { id },
+      data: { stock: { increment: quantity }, soldCount: { decrement: quantity } },
+    });
   }
 
-  async decrementStock(id: string, quantity: number): Promise<Product | null> {
-    return this.productModel
-      .findByIdAndUpdate(id, { $inc: { stock: -quantity, soldCount: quantity } }, { new: true })
-      .exec();
+  async decrementStock(id: string, quantity: number) {
+    return this.prisma.product.update({
+      where: { id },
+      data: { stock: { decrement: quantity }, soldCount: { increment: quantity } },
+    });
   }
 
-  // Operación atómica: solo decrementa si hay stock suficiente (previene race conditions)
-  async atomicDecrementStock(id: string, quantity: number): Promise<Product | null> {
-    return this.productModel
-      .findOneAndUpdate(
-        { _id: id, stock: { $gte: quantity } },
-        { $inc: { stock: -quantity, soldCount: quantity } },
-        { new: true },
-      )
-      .exec();
+  async atomicDecrementStock(id: string, quantity: number) {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const product = await tx.product.findFirst({
+          where: { id, stock: { gte: quantity } },
+          select: { id: true },
+        });
+        if (!product) return null;
+        return tx.product.update({
+          where: { id },
+          data: { stock: { decrement: quantity }, soldCount: { increment: quantity } },
+        });
+      });
+    } catch {
+      return null;
+    }
   }
 
-  async findLowStock(threshold = 5): Promise<Product[]> {
-    return this.productModel
-      .find({ stock: { $lte: threshold, $gt: 0 } })
-      .populate('artisan', 'name')
-      .exec();
+  async findLowStock(threshold = 5) {
+    return this.prisma.product.findMany({
+      where: { stock: { lte: threshold, gt: 0 } },
+      include: { artisan: { select: { id: true, name: true } } },
+    });
   }
 
-  async findOutOfStock(): Promise<Product[]> {
-    return this.productModel.find({ stock: 0 }).populate('artisan', 'name').exec();
+  async findOutOfStock() {
+    return this.prisma.product.findMany({
+      where: { stock: 0 },
+      include: { artisan: { select: { id: true, name: true } } },
+    });
   }
 
-  async count(): Promise<number> {
-    return this.productModel.countDocuments().exec();
+  async count() {
+    return this.prisma.product.count();
   }
 
-  async countByArtisan(artisanId: string): Promise<number> {
-    return this.productModel.countDocuments({ artisan: artisanId }).exec();
+  async countByArtisan(artisanId: string) {
+    return this.prisma.product.count({ where: { artisanId } });
   }
 
-  // --- Reviews ---
-
-  async createReview(data: Partial<Review>): Promise<Review> {
-    return this.reviewModel.create(data);
+  async createReview(data: Prisma.ReviewCreateInput) {
+    return this.prisma.review.create({
+      data,
+      include: { buyer: { select: { id: true, name: true } } },
+    });
   }
 
-  async findReviewsByProduct(productId: string): Promise<Review[]> {
-    return this.reviewModel
-      .find({ product: productId })
-      .populate('buyer', 'name')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findReviewsByProduct(productId: string) {
+    return this.prisma.review.findMany({
+      where: { productId },
+      include: { buyer: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async hasUserReviewed(productId: string, userId: string): Promise<boolean> {
-    const review = await this.reviewModel.findOne({
-      product: new Types.ObjectId(productId),
-      buyer: new Types.ObjectId(userId),
-    }).exec();
+  async hasUserReviewed(productId: string, userId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { buyerId_productId: { buyerId: userId, productId } },
+      select: { id: true },
+    });
     return !!review;
   }
 
-  async calculateAverageRating(productId: string): Promise<number> {
-    const agg = await this.reviewModel.aggregate([
-      { $match: { product: new Types.ObjectId(productId) } },
-      { $group: { _id: '$product', avg: { $avg: '$rating' } } },
-    ]);
-    return agg[0]?.avg || 0;
+  async calculateAverageRating(productId: string) {
+    const agg = await this.prisma.review.aggregate({
+      where: { productId },
+      _avg: { rating: true },
+    });
+    return agg._avg.rating ?? 0;
   }
 
-  async updateRating(productId: string, rating: number): Promise<void> {
-    await this.productModel.findByIdAndUpdate(productId, { ratingAverage: rating });
+  async updateRating(productId: string, rating: number) {
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { ratingAverage: rating },
+    });
   }
 }

@@ -1,225 +1,185 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Order } from './schemas/order.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+const ORDER_INCLUDE = {
+  buyer: { select: { id: true, name: true, email: true } },
+  items: {
+    include: {
+      product: {
+        include: { artisan: { select: { id: true, name: true } } },
+      },
+    },
+  },
+} satisfies Prisma.OrderInclude;
 
 @Injectable()
 export class OrdersRepository {
-  constructor(@InjectModel(Order.name) private readonly orderModel: Model<Order>) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Partial<Order>): Promise<Order> {
-    return this.orderModel.create(data);
+  async create(data: Prisma.OrderUncheckedCreateInput) {
+    return this.prisma.order.create({ data: data as any, include: ORDER_INCLUDE });
   }
 
-  async findById(id: string): Promise<Order | null> {
-    return this.orderModel
-      .findById(id)
-      .populate('buyer', 'name email')
-      .populate('items.product')
-      .exec();
+  async findById(id: string) {
+    return this.prisma.order.findUnique({ where: { id }, include: ORDER_INCLUDE });
   }
 
-  async findByBuyer(buyerId: string): Promise<Order[]> {
-    return this.orderModel
-      .find({ buyer: buyerId })
-      .populate('items.product')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findByBuyer(buyerId: string) {
+    return this.prisma.order.findMany({
+      where: { buyerId },
+      include: ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async findAll(): Promise<Order[]> {
-    return this.orderModel
-      .find()
-      .populate('buyer', 'name email')
-      .populate('items.product')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findAll() {
+    return this.prisma.order.findMany({
+      include: ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async updateStatus(id: string, status: string): Promise<Order | null> {
-    return this.orderModel
-      .findByIdAndUpdate(id, { status }, { new: true })
-      .populate('buyer', 'name email')
-      .populate('items.product')
-      .exec();
+  async updateStatus(id: string, status: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { status: status as any },
+      include: ORDER_INCLUDE,
+    });
   }
 
-  async updatePaymentAndStatus(id: string, paymentStatus: string, status: string): Promise<Order | null> {
-    return this.orderModel
-      .findByIdAndUpdate(id, { paymentStatus, status }, { new: true })
-      .populate('buyer', 'name email')
-      .populate('items.product')
-      .exec();
+  async updatePaymentAndStatus(id: string, paymentStatus: string, status: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { paymentStatus: paymentStatus as any, status: status as any },
+      include: ORDER_INCLUDE,
+    });
   }
 
-  async findByStatus(status: string): Promise<Order[]> {
-    return this.orderModel
-      .find({ status })
-      .populate('buyer', 'name email')
-      .populate('items.product')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findByStatus(status: string) {
+    return this.prisma.order.findMany({
+      where: { status: status as any },
+      include: ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async count(): Promise<number> {
-    return this.orderModel.countDocuments().exec();
+  async count() {
+    return this.prisma.order.count();
   }
 
-  async countByStatus(status: string): Promise<number> {
-    return this.orderModel.countDocuments({ status }).exec();
+  async countByStatus(status: string) {
+    return this.prisma.order.count({ where: { status: status as any } });
   }
 
-  async calculateTotalRevenue(): Promise<number> {
-    const result = await this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelado' } } },
-      { $group: { _id: null, total: { $sum: '$totalOrder' } } },
-    ]);
-    return result[0]?.total || 0;
+  async calculateTotalRevenue() {
+    const result = await this.prisma.order.aggregate({
+      where: { status: { not: 'cancelado' as any } },
+      _sum: { totalOrder: true },
+    });
+    return result._sum.totalOrder ?? 0;
   }
 
-  async calculateRevenueByArtisan(artisanId: string): Promise<number> {
-    const result = await this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelado' } } },
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productData',
-        },
+  async calculateRevenueByArtisan(artisanId: string) {
+    const result = await this.prisma.$queryRaw<{ total: number }[]>`
+      SELECT COALESCE(SUM(oi."totalItem"), 0)::float AS total
+      FROM "Order" o
+      JOIN "OrderItem" oi ON oi."orderId" = o.id
+      JOIN "Product" p ON p.id = oi."productId"
+      WHERE o.status != 'cancelado'
+        AND p."artisanId" = ${artisanId}
+    `;
+    return result[0]?.total ?? 0;
+  }
+
+  async getRecentOrders(limit = 10) {
+    return this.prisma.order.findMany({
+      include: {
+        buyer: { select: { id: true, name: true } },
+        items: { include: { product: { select: { id: true, title: true } } } },
       },
-      { $unwind: '$productData' },
-      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
-      { $group: { _id: null, total: { $sum: '$items.totalItem' } } },
-    ]);
-    return result[0]?.total || 0;
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
   }
 
-  async getRecentOrders(limit = 10): Promise<Order[]> {
-    return this.orderModel
-      .find()
-      .populate('buyer', 'name')
-      .populate('items.product', 'title')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .exec();
-  }
-
-  async findByArtisan(artisanId: string): Promise<Order[]> {
-    return this.orderModel.aggregate([
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productData',
-        },
+  async findByArtisan(artisanId: string) {
+    return this.prisma.order.findMany({
+      where: {
+        items: { some: { product: { artisanId } } },
       },
-      { $unwind: '$productData' },
-      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
-      {
-        $group: {
-          _id: '$_id',
-          buyer: { $first: '$buyer' },
-          items: { $push: '$items' },
-          totalOrder: { $first: '$totalOrder' },
-          status: { $first: '$status' },
-          notes: { $first: '$notes' },
-          createdAt: { $first: '$createdAt' },
-          updatedAt: { $first: '$updatedAt' },
-        },
+      include: ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findActiveByProduct(productId: string) {
+    return this.prisma.order.findMany({
+      where: {
+        items: { some: { productId } },
+        status: { in: ['pendiente', 'en_proceso', 'enviado'] as any[] },
       },
-      { $sort: { createdAt: -1 } },
-    ]);
+    });
   }
 
-  async findActiveByProduct(productId: string): Promise<Order[]> {
-    return this.orderModel
-      .find({
-        'items.product': new Types.ObjectId(productId),
-        status: { $in: ['pendiente', 'en_proceso', 'enviado'] },
-      })
-      .exec();
-  }
-
-  async hasBuyerPurchasedProduct(buyerId: string, productId: string): Promise<boolean> {
-    const order = await this.orderModel.findOne({
-      buyer: new Types.ObjectId(buyerId),
-      'items.product': new Types.ObjectId(productId),
-      status: { $in: ['entregado', 'enviado', 'en_proceso'] },
-    }).exec();
+  async hasBuyerPurchasedProduct(buyerId: string, productId: string) {
+    const order = await this.prisma.order.findFirst({
+      where: {
+        buyerId,
+        status: { in: ['entregado', 'enviado', 'en_proceso'] as any[] },
+        items: { some: { productId } },
+      },
+      select: { id: true },
+    });
     return !!order;
   }
 
-  async getMonthlySales(): Promise<{ month: string; total: number; count: number }[]> {
-    return this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelado' } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-          total: { $sum: '$totalOrder' },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: -1 } },
-      { $limit: 12 },
-      { $project: { month: '$_id', total: 1, count: 1, _id: 0 } },
-    ]);
+  async getMonthlySales() {
+    return this.prisma.$queryRaw<{ month: string; total: number; count: number }[]>`
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM') AS month,
+        SUM("totalOrder")::float        AS total,
+        COUNT(*)::int                   AS count
+      FROM "Order"
+      WHERE status != 'cancelado'
+      GROUP BY month
+      ORDER BY month DESC
+      LIMIT 12
+    `;
   }
 
-  async getMonthlySalesByArtisan(artisanId: string): Promise<any[]> {
-    return this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelado' } } },
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productData',
-        },
-      },
-      { $unwind: '$productData' },
-      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-          total: { $sum: '$items.totalItem' },
-          count: { $sum: '$items.quantity' },
-        },
-      },
-      { $sort: { _id: -1 } },
-      { $limit: 12 },
-      { $project: { month: '$_id', total: 1, count: 1, _id: 0 } },
-    ]);
+  async getMonthlySalesByArtisan(artisanId: string) {
+    return this.prisma.$queryRaw<{ month: string; total: number; count: number }[]>`
+      SELECT
+        TO_CHAR(o."createdAt", 'YYYY-MM') AS month,
+        SUM(oi."totalItem")::float         AS total,
+        SUM(oi.quantity)::int              AS count
+      FROM "Order" o
+      JOIN "OrderItem" oi ON oi."orderId" = o.id
+      JOIN "Product" p ON p.id = oi."productId"
+      WHERE o.status != 'cancelado'
+        AND p."artisanId" = ${artisanId}
+      GROUP BY month
+      ORDER BY month DESC
+      LIMIT 12
+    `;
   }
 
-  async getRevenueByProductForArtisan(artisanId: string): Promise<any[]> {
-    return this.orderModel.aggregate([
-      { $match: { status: { $ne: 'cancelado' } } },
-      { $unwind: '$items' },
-      {
-        $lookup: {
-          from: 'products',
-          localField: 'items.product',
-          foreignField: '_id',
-          as: 'productData',
-        },
-      },
-      { $unwind: '$productData' },
-      { $match: { 'productData.artisan': new Types.ObjectId(artisanId) } },
-      {
-        $group: {
-          _id: '$items.product',
-          productTitle: { $first: '$productData.title' },
-          totalRevenue: { $sum: '$items.totalItem' },
-          totalSold: { $sum: '$items.quantity' },
-        },
-      },
-      { $sort: { totalRevenue: -1 } },
-      { $limit: 20 },
-    ]);
+  async getRevenueByProductForArtisan(artisanId: string) {
+    return this.prisma.$queryRaw<{ productId: string; productTitle: string; totalRevenue: number; totalSold: number }[]>`
+      SELECT
+        p.id                       AS "productId",
+        p.title                    AS "productTitle",
+        SUM(oi."totalItem")::float AS "totalRevenue",
+        SUM(oi.quantity)::int      AS "totalSold"
+      FROM "OrderItem" oi
+      JOIN "Product" p ON p.id = oi."productId"
+      JOIN "Order" o ON o.id = oi."orderId"
+      WHERE o.status != 'cancelado'
+        AND p."artisanId" = ${artisanId}
+      GROUP BY p.id, p.title
+      ORDER BY "totalRevenue" DESC
+      LIMIT 20
+    `;
   }
 }

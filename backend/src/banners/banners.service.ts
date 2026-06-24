@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Banner } from './schemas/banner.schema';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 
 @Injectable()
 export class BannersService {
-  constructor(@InjectModel(Banner.name) private bannerModel: Model<Banner>) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   listActive() {
-    return this.bannerModel.find({ active: true }).exec();
+    return this.prisma.banner.findMany({ where: { active: true }, orderBy: { createdAt: 'desc' } });
   }
 
   create(dto: CreateBannerDto) {
-    return this.bannerModel.create(dto);
+    return this.prisma.banner.create({ data: dto });
   }
 }

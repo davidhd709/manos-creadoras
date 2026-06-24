@@ -3,7 +3,6 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { UsersRepository } from './users.repository';
 import { MailService } from '../mail/mail.service';
-import { User, VerificationStatus } from './schemas/user.schema';
 import { CreateArtisanDto } from './dto/create-artisan.dto';
 import { Role } from '../common/roles.enum';
 
@@ -30,7 +29,7 @@ export class UsersService {
     return this.usersRepository.findByIdWithPassword(id);
   }
 
-  create(data: Partial<User>) {
+  create(data: any) {
     return this.usersRepository.create(data);
   }
 
@@ -42,7 +41,7 @@ export class UsersService {
     return this.usersRepository.findByRole(role);
   }
 
-  update(id: string, data: Partial<User>) {
+  update(id: string, data: any) {
     return this.usersRepository.update(id, data);
   }
 
@@ -62,11 +61,11 @@ export class UsersService {
     const user = await this.usersRepository.findById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');
     if (user.role !== Role.Artisan) throw new BadRequestException('El usuario no es artesano');
-    if (user.verificationStatus === VerificationStatus.Approved && user.isActive) {
+    if (user.verificationStatus === 'approved' && user.isActive) {
       return user;
     }
     const updated = await this.usersRepository.update(id, {
-      verificationStatus: VerificationStatus.Approved,
+      verificationStatus: 'approved',
       isActive: true,
     } as any);
     if (updated) {
@@ -80,7 +79,7 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuario no encontrado');
     if (user.role !== Role.Artisan) throw new BadRequestException('El usuario no es artesano');
     const updated = await this.usersRepository.update(id, {
-      verificationStatus: VerificationStatus.Rejected,
+      verificationStatus: 'rejected',
       isActive: false,
     } as any);
     if (updated) {
@@ -110,13 +109,12 @@ export class UsersService {
       documentNumber: dto.documentNumber,
       mustChangePassword: true,
       isActive: true,
-      verificationStatus: VerificationStatus.Approved,
+      verificationStatus: 'approved',
     } as any);
 
-    // Enviar email con credenciales (no bloquea si falla)
     await this.mailService.sendArtisanWelcome(dto.email, dto.name, rawPassword);
 
-    const { password, ...result } = user.toObject();
+    const { password, passwordResetToken, passwordResetExpires, ...result } = user as any;
     return result;
   }
 }

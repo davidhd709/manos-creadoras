@@ -5,8 +5,6 @@ import { InventoryRepository } from '../inventory/inventory.repository';
 import { ClientsRepository } from '../clients/clients.repository';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
-import { OrderStatus, PaymentMethod, PaymentStatus } from './schemas/order.schema';
-import { MovementType } from '../inventory/schemas/inventory.schema';
 import { Role } from '../common/roles.enum';
 import { MailService } from '../mail/mail.service';
 
@@ -36,7 +34,7 @@ export class OrdersService {
       throw new BadRequestException('Tu carrito está vacío');
     }
 
-    const verifiedItems: { product: string; quantity: number; unitPrice: number; totalItem: number }[] = [];
+    const verifiedItems: { productId: string; quantity: number; unitPrice: number; totalItem: number }[] = [];
     const productSnapshots: any[] = [];
 
     for (const item of dto.items) {
@@ -55,7 +53,7 @@ export class OrdersService {
         : product.price;
 
       verifiedItems.push({
-        product: item.product,
+        productId: item.product,
         quantity: item.quantity,
         unitPrice: realPrice,
         totalItem: realPrice * item.quantity,
@@ -65,50 +63,53 @@ export class OrdersService {
 
     const totalOrder = verifiedItems.reduce((sum, i) => sum + i.totalItem, 0);
 
-    // Reservar stock para WhatsApp y transferencia (paymentStatus pendiente).
-    // Para contra entrega no descontamos hasta que el artesano marque enviado.
-    const shouldReserveStock = dto.paymentMethod !== PaymentMethod.CashOnDelivery;
+    const shouldReserveStock = dto.paymentMethod !== 'cod';
     if (shouldReserveStock) {
       for (const item of verifiedItems) {
-        const product = await this.productsRepository.atomicDecrementStock(item.product, item.quantity);
+        const product = await this.productsRepository.atomicDecrementStock(item.productId, item.quantity);
         if (!product) {
           throw new BadRequestException(
             `No se pudo reservar stock para el producto. Otro pedido pudo haberlo tomado.`,
           );
         }
         await this.inventoryRepository.create({
-          product: item.product as any,
-          type: MovementType.Exit,
+          productId: item.productId,
+          type: 'salida',
           quantity: item.quantity,
           previousStock: product.stock + item.quantity,
           newStock: product.stock,
           reason: `Reserva - Pedido de ${user.email || user.userId}`,
-          performedBy: user.userId,
+          performedById: user.userId,
         });
       }
     }
 
     const order = await this.ordersRepository.create({
-      items: verifiedItems,
+      buyerId: user.userId,
       totalOrder,
-      buyer: user.userId,
-      status: OrderStatus.AwaitingPayment,
-      paymentMethod: dto.paymentMethod,
-      paymentStatus: PaymentStatus.Pending,
+      status: 'awaiting_payment',
+      paymentMethod: dto.paymentMethod as any,
+      paymentStatus: 'pending',
       customerNotes: dto.customerNotes,
-      shippingAddress: {
-        name: (clientProfile as any).user?.name,
-        phone: clientProfile.phone,
-        address: clientProfile.address,
-        city: clientProfile.city,
-        department: clientProfile.department,
-        postalCode: clientProfile.postalCode,
+      shippingName: (clientProfile as any).user?.name ?? user.name,
+      shippingPhone: clientProfile.phone,
+      shippingAddress: clientProfile.address,
+      shippingCity: clientProfile.city,
+      shippingDept: clientProfile.department,
+      shippingPostal: clientProfile.postalCode,
+      shippingNotes: dto.customerNotes ?? null,
+      items: {
+        create: verifiedItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalItem: item.totalItem,
+        })),
       },
     } as any);
 
-    // Notificaciones (no bloquean si fallan)
-    const buyerEmail = (clientProfile as any).user?.email || user.email;
-    const buyerName = (clientProfile as any).user?.name || user.name || 'comprador';
+    const buyerEmail = (clientProfile as any).user?.email ?? user.email;
+    const buyerName = (clientProfile as any).user?.name ?? user.name ?? 'comprador';
     this.mailService.sendOrderCreatedBuyer(buyerEmail, buyerName, order, productSnapshots).catch(() => {});
     this.mailService.notifyArtisansNewOrder(productSnapshots, order).catch(() => {});
 
@@ -118,9 +119,9 @@ export class OrdersService {
   async confirmPayment(id: string) {
     const order = await this.ordersRepository.findById(id);
     if (!order) throw new NotFoundException('Orden no encontrada');
-    if (order.paymentStatus === PaymentStatus.Confirmed) return order;
+    if (order.paymentStatus === 'confirmed') return order;
 
-    return this.ordersRepository.updatePaymentAndStatus(id, PaymentStatus.Confirmed, OrderStatus.Pending);
+    return this.ordersRepository.updatePaymentAndStatus(id, 'confirmed', 'pendiente');
   }
 
   async updateStatus(id: string, dto: UpdateOrderStatusDto, user: any) {
@@ -128,12 +129,12 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Orden no encontrada');
 
     const transitions: Record<string, string[]> = {
-      [OrderStatus.AwaitingPayment]: [OrderStatus.Pending, OrderStatus.Cancelled],
-      [OrderStatus.Pending]: [OrderStatus.InProcess, OrderStatus.Cancelled],
-      [OrderStatus.InProcess]: [OrderStatus.Shipped, OrderStatus.Cancelled],
-      [OrderStatus.Shipped]: [OrderStatus.Delivered],
-      [OrderStatus.Delivered]: [],
-      [OrderStatus.Cancelled]: [],
+      awaiting_payment: ['pendiente', 'cancelado'],
+      pendiente: ['en_proceso', 'cancelado'],
+      en_proceso: ['enviado', 'cancelado'],
+      enviado: ['entregado'],
+      entregado: [],
+      cancelado: [],
     };
 
     const allowed = transitions[order.status] || [];
@@ -143,53 +144,45 @@ export class OrdersService {
       );
     }
 
-    if (dto.status === OrderStatus.Cancelled) {
-      // Solo restaurar stock si efectivamente se descontó (cualquier método ≠ COD o COD que ya estaba enviado).
-      const wasReserved = order.paymentMethod !== PaymentMethod.CashOnDelivery
-        || order.status === OrderStatus.Shipped;
+    if (dto.status === 'cancelado') {
+      const wasReserved = order.paymentMethod !== 'cod' || order.status === 'enviado';
       if (wasReserved) {
-        for (const item of order.items) {
-          const productId = item.product.toString();
+        for (const item of order.items as any[]) {
+          const productId = item.productId;
           const updatedProduct = await this.productsRepository.updateStock(productId, item.quantity);
           await this.inventoryRepository.create({
-            product: productId as any,
-            type: MovementType.Entry,
+            productId,
+            type: 'entrada',
             quantity: item.quantity,
             previousStock: (updatedProduct?.stock || 0) - item.quantity,
             newStock: updatedProduct?.stock || 0,
             reason: `Cancelación de pedido #${id}`,
-            performedBy: user.userId,
+            performedById: user.userId,
           });
         }
       }
     }
 
-    // Para COD, descontar stock al marcar enviado.
-    if (dto.status === OrderStatus.Shipped && order.paymentMethod === PaymentMethod.CashOnDelivery) {
-      for (const item of order.items) {
-        const product = await this.productsRepository.atomicDecrementStock(item.product.toString(), item.quantity);
+    if (dto.status === 'enviado' && order.paymentMethod === 'cod') {
+      for (const item of order.items as any[]) {
+        const product = await this.productsRepository.atomicDecrementStock(item.productId, item.quantity);
         if (!product) {
-          throw new BadRequestException(
-            `No se pudo descontar stock al despachar (producto agotado).`,
-          );
+          throw new BadRequestException(`No se pudo descontar stock al despachar (producto agotado).`);
         }
         await this.inventoryRepository.create({
-          product: item.product as any,
-          type: MovementType.Exit,
+          productId: item.productId,
+          type: 'salida',
           quantity: item.quantity,
           previousStock: product.stock + item.quantity,
           newStock: product.stock,
           reason: `Despacho COD - Pedido #${id}`,
-          performedBy: user.userId,
+          performedById: user.userId,
         });
       }
     }
 
-    if (dto.status === OrderStatus.Delivered) {
-      await this.clientsRepository.incrementPurchaseStats(
-        order.buyer.toString(),
-        order.totalOrder,
-      );
+    if (dto.status === 'entregado') {
+      await this.clientsRepository.incrementPurchaseStats(order.buyerId, order.totalOrder);
     }
 
     return this.ordersRepository.updateStatus(id, dto.status);
@@ -207,17 +200,14 @@ export class OrdersService {
 
     if (user.role === Role.Admin || user.role === Role.SuperAdmin) return order;
 
-    const buyerId = (order.buyer as any)?._id?.toString() ?? order.buyer.toString();
-    if (user.role === Role.Buyer && buyerId !== user.userId) {
+    if (user.role === Role.Buyer && order.buyerId !== user.userId) {
       throw new ForbiddenException('No tienes permiso para ver esta orden');
     }
 
     if (user.role === Role.Artisan) {
-      const hasArtisanProduct = order.items.some((item: any) => {
-        const artisan = item.product?.artisan;
-        const artisanId = artisan?._id?.toString() ?? artisan?.toString();
-        return artisanId === user.userId;
-      });
+      const hasArtisanProduct = (order.items as any[]).some((item) =>
+        item.product?.artisan?.id === user.userId || item.product?.artisanId === user.userId,
+      );
       if (!hasArtisanProduct) {
         throw new ForbiddenException('No tienes permiso para ver esta orden');
       }
@@ -230,7 +220,7 @@ export class OrdersService {
     return this.ordersRepository.findByBuyer(user.userId);
   }
 
-  async artisanOrders(user: any) {
+  artisanOrders(user: any) {
     return this.ordersRepository.findByArtisan(user.userId);
   }
 

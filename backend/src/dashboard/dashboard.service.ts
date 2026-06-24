@@ -87,7 +87,7 @@ export class DashboardService {
 
     // Inventario detallado por producto
     const inventorySummary = products.map((p) => ({
-      _id: p._id,
+      id: p.id,
       title: p.title,
       stock: p.stock,
       soldCount: p.soldCount || 0,

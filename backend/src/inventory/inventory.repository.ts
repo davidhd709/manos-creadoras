@@ -1,34 +1,31 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { InventoryMovement } from './schemas/inventory.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class InventoryRepository {
-  constructor(
-    @InjectModel(InventoryMovement.name)
-    private readonly movementModel: Model<InventoryMovement>,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Partial<InventoryMovement>): Promise<InventoryMovement> {
-    return this.movementModel.create(data);
+  async create(data: Prisma.InventoryMovementUncheckedCreateInput) {
+    return this.prisma.inventoryMovement.create({ data });
   }
 
-  async findByProduct(productId: string): Promise<InventoryMovement[]> {
-    return this.movementModel
-      .find({ product: productId })
-      .populate('performedBy', 'name')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findByProduct(productId: string) {
+    return this.prisma.inventoryMovement.findMany({
+      where: { productId },
+      include: { performedBy: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async findRecent(limit = 20): Promise<InventoryMovement[]> {
-    return this.movementModel
-      .find()
-      .populate('product', 'title stock')
-      .populate('performedBy', 'name')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .exec();
+  async findRecent(limit = 20) {
+    return this.prisma.inventoryMovement.findMany({
+      include: {
+        product: { select: { id: true, title: true, stock: true } },
+        performedBy: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
   }
 }

@@ -1,68 +1,81 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User } from './schemas/user.schema';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersRepository {
-  constructor(@InjectModel(User.name) private readonly userModel: Model<User>) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Partial<User>): Promise<User> {
-    return this.userModel.create(data);
+  async create(data: Prisma.UserCreateInput) {
+    return this.prisma.user.create({ data });
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ email }).exec();
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findById(id: string): Promise<User | null> {
-    return this.userModel.findById(id).select('-password').exec();
+  async findById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      omit: { password: true, passwordResetToken: true, passwordResetExpires: true },
+    });
   }
 
-  async findByIdWithPassword(id: string): Promise<User | null> {
-    return this.userModel.findById(id).exec();
+  async findByIdWithPassword(id: string) {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async findByDocumentNumber(docNumber: string): Promise<User | null> {
-    return this.userModel.findOne({ documentNumber: docNumber }).exec();
+  async findByDocumentNumber(documentNumber: string) {
+    return this.prisma.user.findFirst({ where: { documentNumber } });
   }
 
-  async findByResetToken(hashedToken: string): Promise<User | null> {
-    return this.userModel.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpires: { $gt: new Date() },
-    }).select('+passwordResetToken +passwordResetExpires').exec();
+  async findByResetToken(hashedToken: string) {
+    return this.prisma.user.findFirst({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userModel.find().select('-password').exec();
+  async findAll() {
+    return this.prisma.user.findMany({
+      omit: { password: true, passwordResetToken: true, passwordResetExpires: true },
+    });
   }
 
-  async findByRole(role: string): Promise<User[]> {
-    return this.userModel.find({ role }).select('-password').exec();
+  async findByRole(role: string) {
+    return this.prisma.user.findMany({
+      where: { role: role as any },
+      omit: { password: true, passwordResetToken: true, passwordResetExpires: true },
+    });
   }
 
-  async findPendingArtisans(): Promise<User[]> {
-    return this.userModel
-      .find({ role: 'artisan', verificationStatus: 'pending' })
-      .select('-password')
-      .sort({ createdAt: -1 })
-      .exec();
+  async findPendingArtisans() {
+    return this.prisma.user.findMany({
+      where: { role: 'artisan', verificationStatus: 'pending' },
+      omit: { password: true, passwordResetToken: true, passwordResetExpires: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  async update(id: string, data: Partial<User>): Promise<User | null> {
-    return this.userModel.findByIdAndUpdate(id, data, { new: true }).select('-password').exec();
+  async update(id: string, data: Prisma.UserUpdateInput) {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+      omit: { password: true, passwordResetToken: true, passwordResetExpires: true },
+    });
   }
 
-  async deleteByRole(role: string): Promise<void> {
-    await this.userModel.deleteMany({ role }).exec();
+  async deleteByRole(role: string) {
+    await this.prisma.user.deleteMany({ where: { role: role as any } });
   }
 
-  async count(): Promise<number> {
-    return this.userModel.countDocuments().exec();
+  async count() {
+    return this.prisma.user.count();
   }
 
-  async countByRole(role: string): Promise<number> {
-    return this.userModel.countDocuments({ role }).exec();
+  async countByRole(role: string) {
+    return this.prisma.user.count({ where: { role: role as any } });
   }
 }

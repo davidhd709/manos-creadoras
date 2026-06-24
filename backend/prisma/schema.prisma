@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  superadmin
+  admin
+  artisan
+  buyer
+}
+
+enum DocumentType {
+  CC
+  CE
+  NIT
+  PAS
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum OrderStatus {
+  awaiting_payment
+  pendiente
+  en_proceso
+  enviado
+  entregado
+  cancelado
+}
+
+enum PaymentMethod {
+  whatsapp
+  transfer
+  cod
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  failed
+}
+
+enum MovementType {
+  entrada
+  salida
+  ajuste
+}
+
+model User {
+  id                   String              @id @default(cuid())
+  name                 String
+  email                String              @unique
+  password             String
+  role                 Role                @default(buyer)
+  documentType         DocumentType?
+  documentNumber       String?
+  mustChangePassword   Boolean             @default(false)
+  isActive             Boolean             @default(true)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  verificationStatus   VerificationStatus?
+  whatsapp             String?
+  instagram            String?
+  craft                String?
+  region               String?
+  applicationNotes     String?
+  referredById         String?
+  referredBy           User?               @relation("Referrals", fields: [referredById], references: [id])
+  referrals            User[]              @relation("Referrals")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  products             Product[]
+  orders               Order[]
+  reviews              Review[]
+  artisanProfile       ArtisanProfile?
+  clientProfile        ClientProfile?
+  inventoryMoves       InventoryMovement[]
+
+  @@index([role, isActive])
+  @@index([role, verificationStatus])
+}
+
+model Product {
+  id             String    @id @default(cuid())
+  title          String
+  description    String
+  price          Float
+  stock          Int       @default(0)
+  category       String
+  images         String[]
+  artisanId      String
+  artisan        User      @relation(fields: [artisanId], references: [id])
+  isPromotion    Boolean   @default(false)
+  promotionPrice Float?
+  soldCount      Int       @default(0)
+  ratingAverage  Float     @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  reviews        Review[]
+  orderItems     OrderItem[]
+  inventoryMoves InventoryMovement[]
+
+  @@index([category, price])
+  @@index([artisanId])
+  @@index([soldCount])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+
+  @@unique([buyerId, productId])
+  @@index([productId])
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  buyerId         String
+  buyer           User          @relation(fields: [buyerId], references: [id])
+  items           OrderItem[]
+  totalOrder      Float
+  status          OrderStatus   @default(awaiting_payment)
+  paymentMethod   PaymentMethod @default(whatsapp)
+  paymentStatus   PaymentStatus @default(pending)
+  customerNotes   String?
+  notes           String?
+  shippingName    String?
+  shippingPhone   String?
+  shippingAddress String?
+  shippingCity    String?
+  shippingDept    String?
+  shippingPostal  String?
+  shippingNotes   String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  totalItem Float
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ArtisanProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id])
+  businessName        String
+  logo                String?
+  description         String?
+  phone               String?
+  city                String?
+  department          String?
+  website             String?
+  socialFacebook      String?
+  socialInstagram     String?
+  socialWhatsapp      String?
+  nit                 String?
+  bankAccount         String?
+  bankName            String?
+  story               String?
+  craft               String?
+  region              String?
+  coverImage          String?
+  slug                String?  @unique
+  onboardingCompleted Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([craft, region])
+}
+
+model ClientProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  phone          String?
+  address        String?
+  city           String?
+  department     String?
+  postalCode     String?
+  totalPurchases Int      @default(0)
+  totalSpent     Float    @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Banner {
+  id          String   @id @default(cuid())
+  title       String
+  imageUrl    String
+  description String?
+  link        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model InventoryMovement {
+  id            String       @id @default(cuid())
+  productId     String
+  product       Product      @relation(fields: [productId], references: [id])
+  type          MovementType
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  reason        String?
+  performedById String?
+  performedBy   User?        @relation(fields: [performedById], references: [id])
+  createdAt     DateTime     @default(now())
+
+  @@index([productId])
+}

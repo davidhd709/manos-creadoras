@@ -1,0 +1,10 @@
+# Sobreescritura para producción — combinar con docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Usa las imágenes pre-construidas de GHCR en vez de compilar desde el código fuente.
+services:
+  backend:
+    image: ghcr.io/davidhd709/manos-creadoras-backend:latest
+
+  frontend:
+    image: ghcr.io/davidhd709/manos-creadoras-frontend:latest

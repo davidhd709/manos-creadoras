@@ -1,6 +1,6 @@
 import { IsArray, IsNumber, IsString, IsOptional, IsEnum, ValidateNested, Min, MaxLength } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PaymentMethod } from '../schemas/order.schema';
+import { PaymentMethod } from '@prisma/client';
 
 class OrderItemDto {
   @IsString()
