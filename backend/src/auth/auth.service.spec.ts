@@ -13,15 +13,12 @@ describe('AuthService', () => {
   let mailService: Record<string, jest.Mock>;
 
   const mockUser = {
-    _id: '507f1f77bcf86cd799439011',
+    id: '507f1f77bcf86cd799439011',
     name: 'Test User',
     email: 'test@example.com',
     password: '',
     role: 'buyer',
     isActive: true,
-    toObject() {
-      return { ...this };
-    },
   };
 
   beforeEach(async () => {
@@ -171,8 +168,8 @@ describe('AuthService', () => {
       expect(usersService.update).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          passwordResetToken: undefined,
-          passwordResetExpires: undefined,
+          passwordResetToken: null,
+          passwordResetExpires: null,
         }),
       );
     });

@@ -20,7 +20,7 @@ describe('OrdersService', () => {
 
   beforeEach(async () => {
     ordersRepo = {
-      create: jest.fn().mockImplementation((data) => ({ _id: 'order1', ...data })),
+      create: jest.fn().mockImplementation((data) => ({ id: 'order1', ...data })),
       findById: jest.fn(),
       findByBuyer: jest.fn().mockResolvedValue([]),
       findAll: jest.fn().mockResolvedValue([]),
@@ -107,7 +107,7 @@ describe('OrdersService', () => {
       expect(result).toBeDefined();
       expect(ordersRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          buyer: 'user1',
+          buyerId: 'user1',
           totalOrder: 300,
         }),
       );
@@ -116,9 +116,9 @@ describe('OrdersService', () => {
 
   describe('findByIdWithAuth', () => {
     const mockOrder = {
-      _id: 'order1',
-      buyer: { _id: 'user1', toString: () => 'user1' },
-      items: [{ product: { artisan: { _id: 'artisan1', toString: () => 'artisan1' } } }],
+      id: 'order1',
+      buyerId: 'user1',
+      items: [{ product: { artisanId: 'artisan1' } }],
     };
 
     it('should return order for admin', async () => {
