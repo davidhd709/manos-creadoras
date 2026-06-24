@@ -77,5 +77,6 @@
     "prisma": "^6.0.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.0.0"
-  }
+  },
+  "packageManager": "pnpm@10.14.0"
 }
