@@ -78,5 +78,13 @@
     "ts-jest": "^29.4.6",
     "typescript": "^5.0.0"
   },
-  "packageManager": "pnpm@10.14.0"
+  "packageManager": "pnpm@10.14.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "prisma",
+      "@nestjs/core",
+      "@scarf/scarf"
+    ]
+  }
 }
