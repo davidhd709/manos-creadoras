@@ -16,6 +16,7 @@ import { ArtisanProfilesModule } from './artisan-profiles/artisan-profiles.modul
 import { UploadModule } from './upload/upload.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { SeoModule } from './seo/seo.module';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { SeoModule } from './seo/seo.module';
     UploadModule,
     MetricsModule,
     SeoModule,
+    CartModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import api from '../api';
+import { useAuth } from './AuthContext';
 
 const CartCtx = createContext();
 
@@ -11,17 +12,26 @@ function loadInitial() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return [];
     const parsed = JSON.parse(saved);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((i) => i?.product?._id && i.quantity > 0);
-    }
-    if (parsed && parsed.version === STORAGE_VERSION && Array.isArray(parsed.items)) {
+    if (Array.isArray(parsed)) return parsed.filter((i) => i?.product?._id && i.quantity > 0);
+    if (parsed?.version === STORAGE_VERSION && Array.isArray(parsed.items))
       return parsed.items.filter((i) => i?.product?._id && i.quantity > 0);
-    }
     return [];
   } catch {
     localStorage.removeItem(STORAGE_KEY);
     return [];
   }
+}
+
+function normalizeProduct(p) {
+  if (!p) return p;
+  return { ...p, _id: p._id || p.id };
+}
+
+function normalizeServerItems(serverItems) {
+  return (serverItems || []).map(({ product, quantity }) => ({
+    product: normalizeProduct(product),
+    quantity,
+  }));
 }
 
 function unitPrice(product) {
@@ -30,81 +40,164 @@ function unitPrice(product) {
   return product.price || 0;
 }
 
+function pid(product) {
+  return product?.id || product?._id;
+}
+
 export const CartProvider = ({ children }) => {
+  const { user, authLoading } = useAuth();
   const [items, setItems] = useState(loadInitial);
   const [revalidating, setRevalidating] = useState(false);
   const [warnings, setWarnings] = useState([]);
+  const initializedRef = useRef(false);
+  const itemsRef = useRef(items);
 
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
+  // Persist to localStorage only for anonymous users
   useEffect(() => {
+    if (user) return;
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({ version: STORAGE_VERSION, items, savedAt: Date.now() }),
       );
-    } catch {
-      // localStorage lleno o deshabilitado: ignorar silenciosamente
-    }
-  }, [items]);
+    } catch {}
+  }, [items, user]);
 
-  const add = (product, quantity = 1) => {
-    if (!product || product.stock <= 0) return;
-    setItems((prev) => {
-      const existing = prev.find((p) => p.product._id === product._id);
-      if (existing) {
-        const newQty = Math.min(existing.quantity + quantity, product.stock);
-        return prev.map((p) =>
-          p.product._id === product._id ? { ...p, quantity: newQty, product } : p,
-        );
+  // Sync with backend when auth state changes
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      if (initializedRef.current) {
+        // Just logged out: clear local state (server keeps cart for next login)
+        initializedRef.current = false;
+        setItems([]);
+        setWarnings([]);
       }
-      return [...prev, { product, quantity: Math.min(quantity, product.stock) }];
-    });
-  };
-
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity <= 0) {
-      remove(productId);
+      // Anonymous: items already loaded from localStorage via useState(loadInitial)
       return;
     }
-    setItems((prev) =>
-      prev.map((i) =>
-        i.product._id === productId
-          ? { ...i, quantity: Math.min(newQuantity, i.product.stock || 999) }
-          : i,
-      ),
-    );
-  };
 
-  const remove = (id) => setItems((prev) => prev.filter((p) => p.product._id !== id));
+    if (initializedRef.current) return;
+    initializedRef.current = true;
 
-  const clear = () => {
+    // Authenticated: sync localStorage items → backend, then load from backend
+    const localItems = loadInitial();
+    const syncPayload = localItems
+      .map((i) => ({ productId: pid(i.product), quantity: i.quantity }))
+      .filter((x) => x.productId);
+
+    (async () => {
+      if (syncPayload.length > 0) {
+        try {
+          await api.post('/cart/sync', { items: syncPayload });
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // ignore sync failure, still fetch server cart
+        }
+      }
+      const { data } = await api.get('/cart');
+      setItems(normalizeServerItems(data.items));
+    })().catch(() => {});
+  }, [authLoading, user]);
+
+  const add = useCallback(
+    (product, quantity = 1) => {
+      if (!product || product.stock <= 0) return;
+      const productPid = pid(product);
+      const normalizedProduct = normalizeProduct(product);
+      const current = itemsRef.current.find((p) => pid(p.product) === productPid);
+      const newQty = current
+        ? Math.min(current.quantity + quantity, product.stock)
+        : Math.min(quantity, product.stock);
+
+      setItems((prev) => {
+        if (current) {
+          return prev.map((p) =>
+            pid(p.product) === productPid
+              ? { ...p, quantity: newQty, product: normalizedProduct }
+              : p,
+          );
+        }
+        return [...prev, { product: normalizedProduct, quantity: newQty }];
+      });
+
+      if (user) {
+        api.put('/cart/items', { productId: productPid, quantity: newQty }).catch(() => {});
+      }
+    },
+    [user],
+  );
+
+  const updateQuantity = useCallback(
+    (productId, newQuantity) => {
+      if (newQuantity <= 0) {
+        remove(productId);
+        return;
+      }
+      const item = itemsRef.current.find((i) => pid(i.product) === productId);
+      const clampedQty = Math.min(newQuantity, item?.product.stock || 999);
+
+      setItems((prev) =>
+        prev.map((i) =>
+          pid(i.product) === productId ? { ...i, quantity: clampedQty } : i,
+        ),
+      );
+
+      if (user) {
+        api.put('/cart/items', { productId, quantity: clampedQty }).catch(() => {});
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user],
+  );
+
+  const remove = useCallback(
+    (productId) => {
+      setItems((prev) => prev.filter((p) => pid(p.product) !== productId));
+      if (user) {
+        api.delete(`/cart/items/${productId}`).catch(() => {});
+      }
+    },
+    [user],
+  );
+
+  const clear = useCallback(() => {
     setItems([]);
     setWarnings([]);
-  };
+    if (user) {
+      api.delete('/cart').catch(() => {});
+    }
+  }, [user]);
 
-  const dismissWarning = (productId) => {
+  const dismissWarning = useCallback((productId) => {
     setWarnings((prev) => prev.filter((w) => w.productId !== productId));
-  };
+  }, []);
 
   const revalidate = useCallback(async () => {
-    if (items.length === 0) return { changed: false, warnings: [] };
+    const currentItems = itemsRef.current;
+    if (currentItems.length === 0) return { changed: false, warnings: [] };
     setRevalidating(true);
     try {
       const fresh = await Promise.all(
-        items.map((i) =>
+        currentItems.map((i) =>
           api
-            .get(`/products/${i.product._id}`)
-            .then(({ data }) => ({ id: i.product._id, product: data, error: null }))
-            .catch((err) => ({ id: i.product._id, product: null, error: err })),
+            .get(`/products/${pid(i.product)}`)
+            .then(({ data }) => ({ id: pid(i.product), product: data, error: null }))
+            .catch((err) => ({ id: pid(i.product), product: null, error: err })),
         ),
       );
       const newWarnings = [];
       const nextItems = [];
-      items.forEach((current) => {
-        const found = fresh.find((f) => f.id === current.product._id);
+      currentItems.forEach((current) => {
+        const currentPid = pid(current.product);
+        const found = fresh.find((f) => f.id === currentPid);
         if (!found) return;
         if (found.error || !found.product) {
           newWarnings.push({
-            productId: current.product._id,
+            productId: currentPid,
             type: 'unavailable',
             title: current.product.title,
             message: 'Este producto ya no está disponible. Lo retiramos de tu carrito.',
@@ -114,7 +207,7 @@ export const CartProvider = ({ children }) => {
         const fp = found.product;
         if (fp.stock <= 0) {
           newWarnings.push({
-            productId: current.product._id,
+            productId: currentPid,
             type: 'out_of_stock',
             title: fp.title,
             message: 'Se agotó este producto. Lo retiramos de tu carrito.',
@@ -124,7 +217,7 @@ export const CartProvider = ({ children }) => {
         let qty = current.quantity;
         if (qty > fp.stock) {
           newWarnings.push({
-            productId: current.product._id,
+            productId: currentPid,
             type: 'reduced',
             title: fp.title,
             message: `Ajustamos la cantidad a ${fp.stock} (era el último stock disponible).`,
@@ -135,7 +228,7 @@ export const CartProvider = ({ children }) => {
         const newUnit = unitPrice(fp);
         if (oldUnit !== newUnit) {
           newWarnings.push({
-            productId: current.product._id,
+            productId: currentPid,
             type: 'price_change',
             title: fp.title,
             message:
@@ -144,7 +237,7 @@ export const CartProvider = ({ children }) => {
                 : 'Cambió el precio. Actualizamos el valor en tu carrito.',
           });
         }
-        nextItems.push({ product: fp, quantity: qty });
+        nextItems.push({ product: normalizeProduct(fp), quantity: qty });
       });
       setItems(nextItems);
       setWarnings(newWarnings);
@@ -152,7 +245,7 @@ export const CartProvider = ({ children }) => {
     } finally {
       setRevalidating(false);
     }
-  }, [items]);
+  }, []);
 
   const subtotal = useMemo(
     () => items.reduce((sum, i) => sum + unitPrice(i.product) * i.quantity, 0),
@@ -169,10 +262,7 @@ export const CartProvider = ({ children }) => {
     [items],
   );
 
-  const count = useMemo(
-    () => items.reduce((sum, i) => sum + i.quantity, 0),
-    [items],
-  );
+  const count = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
 
   const value = {
     items,
