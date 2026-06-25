@@ -1,4 +1,12 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ProductsRepository } from './products.repository';
 import { OrdersRepository } from '../orders/orders.repository';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -14,44 +22,51 @@ export class ProductsService {
   ) {}
 
   async list(filter: any) {
-    const q: any = {};
-    if (filter.category) q.category = filter.category;
+    const where: Prisma.ProductWhereInput = {};
+
+    if (filter.category) where.category = filter.category;
+
     if (filter.search) {
-      const escaped = filter.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      q.title = { $regex: escaped, $options: 'i' };
+      const term = filter.search.trim();
+      where.OR = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { category: { contains: term, mode: 'insensitive' } },
+      ];
     }
-    if (filter.isPromotion === 'true') q.isPromotion = true;
-    if (filter.artisan) q.artisan = filter.artisan;
+
+    if (filter.isPromotion === 'true') where.isPromotion = true;
+    if (filter.artisan) where.artisanId = filter.artisan;
 
     const minPrice = parseFloat(filter.minPrice);
     const maxPrice = parseFloat(filter.maxPrice);
     if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
-      q.price = {};
-      if (!Number.isNaN(minPrice)) q.price.$gte = minPrice;
-      if (!Number.isNaN(maxPrice)) q.price.$lte = maxPrice;
+      where.price = {};
+      if (!Number.isNaN(minPrice)) (where.price as any).gte = minPrice;
+      if (!Number.isNaN(maxPrice)) (where.price as any).lte = maxPrice;
     }
 
     const minRating = parseFloat(filter.minRating);
     if (!Number.isNaN(minRating) && minRating > 0) {
-      q.ratingAverage = { $gte: minRating };
+      where.ratingAverage = { gte: minRating };
     }
 
-    if (filter.inStock === 'true') q.stock = { $gt: 0 };
+    if (filter.inStock === 'true') where.stock = { gt: 0 };
 
-    const sortMap: Record<string, Record<string, 1 | -1>> = {
-      relevance: { soldCount: -1, ratingAverage: -1, createdAt: -1 },
-      price_asc: { price: 1 },
-      price_desc: { price: -1 },
-      newest: { createdAt: -1 },
-      bestsellers: { soldCount: -1 },
-      rating: { ratingAverage: -1, soldCount: -1 },
+    const sortMap: Record<string, Prisma.ProductOrderByWithRelationInput[]> = {
+      relevance: [{ soldCount: 'desc' }, { ratingAverage: 'desc' }, { createdAt: 'desc' }],
+      price_asc: [{ price: 'asc' }],
+      price_desc: [{ price: 'desc' }],
+      newest: [{ createdAt: 'desc' }],
+      bestsellers: [{ soldCount: 'desc' }],
+      rating: [{ ratingAverage: 'desc' }, { soldCount: 'desc' }],
     };
-    const sort = sortMap[filter.sort] || sortMap.relevance;
+    const orderBy = sortMap[filter.sort] || sortMap.relevance;
 
     const page = Math.max(1, parseInt(filter.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(filter.limit, 10) || 12));
 
-    const { data, total } = await this.productsRepository.findPaginated(q, page, limit, sort);
+    const { data, total } = await this.productsRepository.findPaginated(where, page, limit, orderBy);
 
     return {
       data,
@@ -70,22 +85,23 @@ export class ProductsService {
   }
 
   async create(dto: CreateProductDto, user: any) {
-    return this.productsRepository.create({ ...dto, artisan: user.userId });
+    return this.productsRepository.create({
+      ...dto,
+      artisan: { connect: { id: user.sub || user.userId } },
+    });
   }
 
   async update(id: string, dto: UpdateProductDto, user: any) {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
-    const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
+
     const isPlatformAdmin = user.role === Role.Admin || user.role === Role.SuperAdmin;
-    if (!isPlatformAdmin && artisanId !== user.userId) {
+    if (!isPlatformAdmin && product.artisanId !== (user.sub || user.userId)) {
       throw new ForbiddenException('No tienes permiso para editar este producto');
     }
 
-    const updateData: any = { ...dto };
-    if (dto.isPromotion === false) {
-      updateData.promotionPrice = undefined;
-    }
+    const updateData: Prisma.ProductUpdateInput = { ...dto };
+    if (dto.isPromotion === false) updateData.promotionPrice = null;
 
     return this.productsRepository.update(id, updateData);
   }
@@ -93,13 +109,12 @@ export class ProductsService {
   async remove(id: string, user: any) {
     const product = await this.productsRepository.findById(id);
     if (!product) throw new NotFoundException('Producto no encontrado');
-    const artisanId = (product.artisan as any)?._id?.toString() ?? product.artisan.toString();
+
     const isPlatformAdmin = user.role === Role.Admin || user.role === Role.SuperAdmin;
-    if (!isPlatformAdmin && artisanId !== user.userId) {
+    if (!isPlatformAdmin && product.artisanId !== (user.sub || user.userId)) {
       throw new ForbiddenException('No tienes permiso para eliminar este producto');
     }
 
-    // Verificar que no haya órdenes activas con este producto
     const activeOrders = await this.ordersRepository.findActiveByProduct(id);
     if (activeOrders.length > 0) {
       throw new BadRequestException(
@@ -115,21 +130,21 @@ export class ProductsService {
     const product = await this.productsRepository.findById(productId);
     if (!product) throw new NotFoundException('Producto no encontrado');
 
-    // Validar que el comprador haya comprado el producto
-    const hasPurchased = await this.ordersRepository.hasBuyerPurchasedProduct(user.userId, productId);
+    const userId = user.sub || user.userId;
+
+    const hasPurchased = await this.ordersRepository.hasBuyerPurchasedProduct(userId, productId);
     if (!hasPurchased) {
       throw new BadRequestException('Solo puedes opinar sobre productos que hayas comprado');
     }
 
-    // Prevenir reviews duplicados
-    const alreadyReviewed = await this.productsRepository.hasUserReviewed(productId, user.userId);
+    const alreadyReviewed = await this.productsRepository.hasUserReviewed(productId, userId);
     if (alreadyReviewed) {
       throw new BadRequestException('Ya has dejado una reseña para este producto');
     }
 
     const review = await this.productsRepository.createReview({
-      product: productId as any,
-      buyer: user.userId,
+      product: { connect: { id: productId } },
+      buyer: { connect: { id: userId } },
       rating,
       comment,
     });

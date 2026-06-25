@@ -26,7 +26,7 @@ export class ProductsRepository {
     filter: Prisma.ProductWhereInput,
     page: number,
     limit: number,
-    orderBy: Prisma.ProductOrderByWithRelationInput = { soldCount: 'desc' },
+    orderBy: Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[] = [{ soldCount: 'desc' }],
   ) {
     const skip = (page - 1) * limit;
     const [data, total] = await this.prisma.$transaction([
