@@ -9,6 +9,7 @@ import { json, urlencoded } from 'express';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { join } from 'path';
+import * as cookieParser from 'cookie-parser';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -39,6 +40,8 @@ async function bootstrap() {
   });
 
   const config = app.get(ConfigService);
+
+  app.use(cookieParser());
 
   app.use(
     helmet({

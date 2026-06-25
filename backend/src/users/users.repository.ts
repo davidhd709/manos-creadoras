@@ -38,6 +38,12 @@ export class UsersRepository {
     });
   }
 
+  async findByRefreshToken(hashedToken: string) {
+    return this.prisma.user.findFirst({
+      where: { refreshToken: hashedToken, isActive: true },
+    });
+  }
+
   async findAll() {
     return this.prisma.user.findMany({
       omit: { password: true, passwordResetToken: true, passwordResetExpires: true },

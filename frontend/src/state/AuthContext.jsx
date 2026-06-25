@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../api';
+import api, { setAccessToken, clearAccessToken } from '../api';
 
 const AuthCtx = createContext();
 
@@ -14,20 +14,51 @@ const safeParse = (key) => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
+  // user en estado; localStorage solo para mostrar info rápida entre recargas
+  const [user, setUser] = useState(() => safeParse('user'));
+  const [mustChangePassword, setMustChangePassword] = useState(
+    () => localStorage.getItem('mustChangePassword') === 'true',
+  );
+  const [authLoading, setAuthLoading] = useState(true);
 
+  // Al montar: intentar renovar la sesión con la cookie httpOnly
   useEffect(() => {
-    const saved = safeParse('user');
-    if (saved) setUser(saved);
-    if (localStorage.getItem('mustChangePassword') === 'true') setMustChangePassword(true);
+    api.post('/auth/refresh')
+      .then(({ data }) => {
+        setAccessToken(data.access_token);
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      })
+      .catch(() => {
+        // Cookie expirada o no existe — limpiar estado
+        clearAccessToken();
+        setUser(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('mustChangePassword');
+      })
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  // Escuchar evento de logout disparado por el interceptor de axios
+  useEffect(() => {
+    const handleForceLogout = () => {
+      setUser(null);
+      setMustChangePassword(false);
+      localStorage.removeItem('user');
+      localStorage.removeItem('mustChangePassword');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    };
+    window.addEventListener('auth:logout', handleForceLogout);
+    return () => window.removeEventListener('auth:logout', handleForceLogout);
   }, []);
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    localStorage.setItem('token', data.access_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    setAccessToken(data.access_token);
     setUser(data.user);
+    localStorage.setItem('user', JSON.stringify(data.user));
 
     if (data.mustChangePassword) {
       localStorage.setItem('mustChangePassword', 'true');
@@ -40,10 +71,19 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (payload) => {
     const { data } = await api.post('/auth/register', payload);
-    localStorage.setItem('token', data.access_token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    setAccessToken(data.access_token);
     setUser(data.user);
+    localStorage.setItem('user', JSON.stringify(data.user));
     setMustChangePassword(false);
+  };
+
+  const logout = async () => {
+    await api.post('/auth/logout').catch(() => {});
+    clearAccessToken();
+    setUser(null);
+    setMustChangePassword(false);
+    localStorage.removeItem('user');
+    localStorage.removeItem('mustChangePassword');
   };
 
   const passwordChanged = () => {
@@ -51,16 +91,8 @@ export const AuthProvider = ({ children }) => {
     setMustChangePassword(false);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('mustChangePassword');
-    setUser(null);
-    setMustChangePassword(false);
-  };
-
   return (
-    <AuthCtx.Provider value={{ user, mustChangePassword, login, register, logout, passwordChanged }}>
+    <AuthCtx.Provider value={{ user, mustChangePassword, authLoading, login, register, logout, passwordChanged }}>
       {children}
     </AuthCtx.Provider>
   );

@@ -29,7 +29,7 @@ export class AuthService {
     if (exists) throw new ConflictException('El correo ya esta registrado');
     const hashed = await bcrypt.hash(dto.password, 10);
     const user = await this.usersService.create({ ...dto, role: Role.Buyer, password: hashed } as any);
-    return this.signToken(user);
+    return this.signTokenWithRefresh(user);
   }
 
   async registerArtisan(dto: RegisterArtisanDto) {
@@ -85,11 +85,30 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Credenciales invalidas');
 
-    const tokenData = this.signToken(user);
+    const tokenData = await this.signTokenWithRefresh(user);
     return {
       ...tokenData,
       mustChangePassword: user.mustChangePassword || false,
     };
+  }
+
+  async refresh(rawToken: string) {
+    const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const user = await this.usersService.findByRefreshToken(hashed);
+    if (!user) throw new UnauthorizedException('Sesion expirada, por favor inicia sesion de nuevo');
+    return this.signTokenWithRefresh(user);
+  }
+
+  async logout(rawToken: string) {
+    try {
+      const hashed = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const user = await this.usersService.findByRefreshToken(hashed);
+      if (user) {
+        await this.usersService.update(user.id, { refreshToken: null } as any);
+      }
+    } catch {
+      // Si el token ya no existe en BD, ignorar
+    }
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -151,9 +170,16 @@ export class AuthService {
     return { message: 'Contrasena restablecida exitosamente' };
   }
 
-  private signToken(user: any) {
+  private async signTokenWithRefresh(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role };
-    const { password, passwordResetToken, passwordResetExpires, ...safeUser } = user;
-    return { access_token: this.jwtService.sign(payload), user: safeUser };
+    const { password, passwordResetToken, passwordResetExpires, refreshToken, ...safeUser } = user;
+
+    const access_token = this.jwtService.sign(payload);
+
+    const rawRefreshToken = crypto.randomBytes(40).toString('hex');
+    const hashedRefreshToken = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    await this.usersService.update(user.id, { refreshToken: hashedRefreshToken } as any);
+
+    return { access_token, refresh_token: rawRefreshToken, user: safeUser };
   }
 }

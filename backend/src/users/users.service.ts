@@ -21,6 +21,10 @@ export class UsersService {
     return this.usersRepository.findByResetToken(hashedToken);
   }
 
+  findByRefreshToken(hashedToken: string) {
+    return this.usersRepository.findByRefreshToken(hashedToken);
+  }
+
   findById(id: string) {
     return this.usersRepository.findById(id);
   }
